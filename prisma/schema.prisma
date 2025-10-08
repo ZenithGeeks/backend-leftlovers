@@ -206,7 +206,7 @@ model Option {
   name           String
   priceDelta     Decimal     @db.Decimal(10,2)
   sortOrder      Int         @default(0)
-
+  active         Boolean     @default(true)
   group          OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
   orderChoices   OrderItemOption[]
 
