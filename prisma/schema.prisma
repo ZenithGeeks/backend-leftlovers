@@ -88,6 +88,12 @@ enum EmployeeRole {
   STOCK
 }
 
+enum OrderPreference {
+  CONTACT
+  REMOVE
+  CANCELLED
+}
+
 enum EmployeeStatus {
   ACTIVE
   DISABLED
@@ -226,6 +232,8 @@ model Order {
   pickupCode     String?       @unique
   pickupDeadline DateTime?
   createdAt      DateTime      @default(now())
+  preference     OrderPreference       @default(CONTACT)
+  note           String?
 
   customer       User          @relation(fields: [customerId], references: [id])
   merchant       Merchant      @relation(fields: [merchantId], references: [id])
