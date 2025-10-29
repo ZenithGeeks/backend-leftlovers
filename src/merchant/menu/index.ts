@@ -1,304 +1,368 @@
-// routes/merchant.menu.ts
 import { Elysia, t } from 'elysia'
-import { Prisma, PrismaClient } from '@prisma/client'
-import { MenuItemInputCreate, MenuItemPlain } from '../../../generated/prismabox/MenuItem'
-import { OptionGroupTemplatePlain } from '../../../generated/prismabox/OptionGroupTemplate'
-import { OptionGroupInputCreate } from '../../../generated/prismabox/OptionGroup'
-import { OptionTemplateInputUpdate, OptionTemplatePlain } from '../../../generated/prismabox/OptionTemplate'
+import { PrismaClient, MenuItemStatus } from '@prisma/client'
 
-const prisma = new PrismaClient().$extends({
-  result: {
-    menuItem: {
-      basePrice: {
-        needs: { basePrice: true },
-        compute: ({ basePrice }) => Number(basePrice)
-      },
-      originalPrice: {
-        needs: { originalPrice: true },
-        compute: ({ originalPrice }) =>
-          originalPrice === null ? null : Number(originalPrice)
-      }
-    },
-    optionTemplate: {
-      priceDelta: {
-        needs: { priceDelta: true },
-        compute: ({ priceDelta }) => Number(priceDelta)
-      }
-    },
-    option: {
-      priceDelta: {
-        needs: { priceDelta: true },
-        compute: ({ priceDelta }) => Number(priceDelta)
-      }
-    },
-    payment: {
-      amount: {
-        needs: { amount: true },
-        compute: ({ amount }) => Number(amount)
-      }
-    },
-    promotion: {
-      value: {
-        needs: { value: true },
-        compute: ({ value }) => Number(value)
-      },
-      minOrder: {
-        needs: { minOrder: true },
-        compute: ({ minOrder }) =>
-          minOrder === null ? null : Number(minOrder)
-      }
-    }
-  }
+const prisma = new PrismaClient()
+
+/* ------------------- 🧩 Reusable Validation Schemas ------------------- */
+
+const MenuCreate = t.Object({
+  name: t.String(),
+  description: t.Optional(t.String()),
+  basePrice: t.Number(),
+  originalPrice: t.Optional(t.Number()),
+  leftoverQty: t.Optional(t.Number()),
+  expiresAt: t.Optional(t.String()),
+  status: t.Optional(
+    t.Union([
+      t.Literal('DRAFT'),
+      t.Literal('LIVE'),
+      t.Literal('SOLD_OUT'),
+      t.Literal('EXPIRED')
+    ])
+  ),
+  photoUrl: t.Optional(t.String()),
+  expireLabelUrl: t.Optional(t.String())
 })
 
-// ---------- Router ----------
+const MenuUpdate = t.Partial(MenuCreate)
+
+const GroupCreate = t.Object({
+  menuId: t.String(),
+  name: t.String(),
+  minSelect: t.Optional(t.Number()),
+  maxSelect: t.Optional(t.Number()),
+  options: t.Optional(
+    t.Array(
+      t.Object({
+        name: t.String(),
+        priceDelta: t.Number(),
+        active: t.Optional(t.Boolean())
+      })
+    )
+  )
+})
+
+const GroupUpdate = t.Partial(
+  t.Object({
+    name: t.String(),
+    minSelect: t.Number(),
+    maxSelect: t.Number()
+  })
+)
+
+const OptionCreate = t.Object({
+  name: t.String(),
+  priceDelta: t.Number(),
+  active: t.Optional(t.Boolean())
+})
+
+const OptionUpdate = t.Partial(OptionCreate)
+
+/* ------------------- 🧠 Helper Functions ------------------- */
+
+const toMenuCreate = (merchantId: string, body: any) => ({
+  merchantId,
+  name: body.name,
+  description: body.description ?? null,
+  basePrice: body.basePrice,
+  originalPrice: body.originalPrice ?? null,
+  leftoverQty: body.leftoverQty ?? 0,
+  expiresAt: body.expiresAt ? new Date(body.expiresAt) : new Date(),
+  status: (body.status as MenuItemStatus) ?? MenuItemStatus.DRAFT,
+  photoUrl: body.photoUrl ?? null,
+  expireLabelUrl: body.expireLabelUrl ?? null
+})
+
+const toMenuUpdate = (body: any) => ({
+  ...(body.name && { name: body.name }),
+  ...(body.description !== undefined && { description: body.description ?? null }),
+  ...(body.basePrice !== undefined && { basePrice: body.basePrice }),
+  ...(body.originalPrice !== undefined && { originalPrice: body.originalPrice ?? null }),
+  ...(body.leftoverQty !== undefined && { leftoverQty: body.leftoverQty }),
+  ...(body.expiresAt && { expiresAt: new Date(body.expiresAt) }),
+  ...(body.status && { status: body.status as MenuItemStatus }),
+  ...(body.photoUrl !== undefined && { photoUrl: body.photoUrl ?? null }),
+  ...(body.expireLabelUrl !== undefined && { expireLabelUrl: body.expireLabelUrl ?? null })
+})
+
 export const merchantMenu = new Elysia({ prefix: '/merchant' })
 
   /* ===================== MENU ===================== */
 
-  // Get Menu by RestaurantID
-  // GET /api/merchant/:restaurant_id/menu
-  .get(
-    '/:restaurant_id/menu',
-    async ({ params: { restaurant_id }, set }) => {
-      const rows = await prisma.menuItem.findMany({
-        where: { merchantId: restaurant_id },
-        orderBy: { createdAt: 'desc' }
-      })
-      if (!rows.length) { set.status = 404; return 'No menu found' }
-      return rows // numbers already computed by $extends
-    },
-    {
-      detail: { tags: ['Menu'], summary: 'Get Menu by RestaurantID' },
-      params: t.Object({ restaurant_id: t.String() }),
-      response: { 200: t.Array(MenuItemPlain), 404: t.String() }
+  // Get all menu items
+  .get('/:merchantId/menu', async ({ params, set }) => {
+    const items = await prisma.menuItem.findMany({
+      where: { merchantId: params.merchantId },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    if (!items.length) {
+      set.status = 404
+      return { message: 'No menu found' }
     }
-  )
 
-  // Post new Menu by RestaurantID
-  // POST /api/merchant/:restaurant_id/menu
-  .post(
-    '/:restaurant_id/menu',
-    async ({ params: { restaurant_id }, body, set }) => {
-      // Build Unchecked create input (FKs only). Do NOT include nested relations.
-      const categoryId =
-        'categoryId' in body
-          ? (body as any).categoryId ?? null
-          : (body as any).category?.connect?.id ?? null
+    return items.map(i => ({
+      ...i,
+      basePrice: Number(i.basePrice),
+      originalPrice: i.originalPrice === null ? null : Number(i.originalPrice)
+    }))
+  })
 
-      const data: Prisma.MenuItemUncheckedCreateInput = {
-        merchantId: restaurant_id,
-        categoryId: categoryId,
+  // Get single menu
+  .get('/:merchantId/menu/:menuId', async ({ params, set }) => {
+    const item = await prisma.menuItem.findFirst({
+      where: { id: params.menuId, merchantId: params.merchantId }
+    })
+
+    if (!item) {
+      set.status = 404
+      return { message: 'Menu not found' }
+    }
+
+    return {
+      ...item,
+      basePrice: Number(item.basePrice),
+      originalPrice: item.originalPrice ? Number(item.originalPrice) : null
+    }
+  })
+
+  // Create menu
+  .post('/:merchantId/menu', async ({ params, body, set }) => {
+    const created = await prisma.menuItem.create({ data: toMenuCreate(params.merchantId, body) })
+    set.status = 201
+    return created
+  }, { body: MenuCreate })
+
+  // Update menu
+  .put('/:merchantId/menu/:menuId', async ({ params, body, set }) => {
+    const exists = await prisma.menuItem.findFirst({
+      where: { id: params.menuId, merchantId: params.merchantId }
+    })
+    if (!exists) {
+      set.status = 404
+      return { message: 'Menu not found' }
+    }
+
+    const updated = await prisma.menuItem.update({
+      where: { id: params.menuId },
+      data: toMenuUpdate(body)
+    })
+
+    return updated
+  }, { body: MenuUpdate })
+
+  // Delete menu
+  .delete('/:merchantId/menu/:menuId', async ({ params, set }) => {
+    const exists = await prisma.menuItem.findFirst({
+      where: { id: params.menuId, merchantId: params.merchantId }
+    })
+    if (!exists) {
+      set.status = 404
+      return { message: 'Menu not found' }
+    }
+
+    await prisma.menuItem.delete({ where: { id: params.menuId } })
+    set.status = 204
+    return null
+  })
+
+  /* ===================== GROUPS ===================== */
+
+  // Get groups by merchant (via menuId)
+  .get('/:merchantId/group', async ({ params, set }) => {
+    const menuIds = await prisma.menuItem.findMany({
+      where: { merchantId: params.merchantId },
+      select: { id: true }
+    })
+
+    const groups = await prisma.optionGroup.findMany({
+      where: { menuId: { in: menuIds.map(m => m.id) } },
+      include: { options: true }
+    })
+
+    if (!groups.length) {
+      set.status = 404
+      return { message: 'No groups found' }
+    }
+
+    return groups.map(g => ({
+      ...g,
+      options: g.options.map(o => ({ ...o, priceDelta: Number(o.priceDelta) }))
+    }))
+  })
+
+  // Create group (with options)
+  .post('/:merchantId/group', async ({ params, body, set }) => {
+    const menu = await prisma.menuItem.findFirst({
+      where: { id: body.menuId, merchantId: params.merchantId }
+    })
+    if (!menu) {
+      set.status = 404
+      return { message: 'Menu not found for this merchant' }
+    }
+
+    const created = await prisma.optionGroup.create({
+      data: {
+        menuId: body.menuId,
         name: body.name,
-        description: body.description ?? null,
-        basePrice: body.basePrice,
-        originalPrice: body.originalPrice ?? null,
-        leftoverQty: body.leftoverQty ?? 0,
-        expiresAt: body.expiresAt ? new Date((body as any).expiresAt as string) : null,
-        status: (body.status as any) ?? 'DRAFT',
-        photoUrl: body.photoUrl ?? null,
-        expireLabelUrl: body.expireLabelUrl ?? null
+        minSelect: body.minSelect ?? 0,
+        maxSelect: body.maxSelect ?? 1,
+        options: body.options
+          ? { create: body.options.map(o => ({
+              name: o.name,
+              priceDelta: o.priceDelta,
+              active: o.active ?? true
+            })) }
+          : undefined
+      },
+      include: { options: true }
+    })
+
+    set.status = 201
+    return created
+  }, { body: GroupCreate })
+
+  // Update group
+  .put('/:merchantId/group/:groupId', async ({ params, body, set }) => {
+    const group = await prisma.optionGroup.findFirst({
+      where: { id: params.groupId }
+    })
+    if (!group) {
+      set.status = 404
+      return { message: 'Group not found' }
+    }
+
+    const menu = await prisma.menuItem.findFirst({
+      where: { id: group.menuId, merchantId: params.merchantId }
+    })
+    if (!menu) {
+      set.status = 403
+      return { message: 'Group does not belong to this merchant' }
+    }
+
+    const updated = await prisma.optionGroup.update({
+      where: { id: params.groupId },
+      data: body
+    })
+
+    return updated
+  }, { body: GroupUpdate })
+
+  // Create option inside group
+  .post('/:merchantId/group/:groupId/options', async ({ params, body, set }) => {
+    const group = await prisma.optionGroup.findFirst({
+      where: { id: params.groupId }
+    })
+    if (!group) {
+      set.status = 404
+      return { message: 'Group not found' }
+    }
+
+    const menu = await prisma.menuItem.findFirst({
+      where: { id: group.menuId, merchantId: params.merchantId }
+    })
+    if (!menu) {
+      set.status = 403
+      return { message: 'Group does not belong to this merchant' }
+    }
+
+    const created = await prisma.option.create({
+      data: {
+        optionGroupId: params.groupId,
+        name: body.name,
+        priceDelta: body.priceDelta,
+        active: body.active ?? true
       }
+    })
 
-      const created = await prisma.menuItem.create({ data })
-      set.status = 201
-      return created
-    },
-    {
-      detail: { tags: ['Menu'], summary: 'Post new Menu by RestaurantID' },
-      params: t.Object({ restaurant_id: t.String() }),
-      body: MenuItemInputCreate,
-      response: { 201: MenuItemPlain }
+    set.status = 201
+    return { ...created, priceDelta: Number(created.priceDelta) }
+  }, { body: OptionCreate })
+
+  // Update option
+  .put('/:merchantId/group/:groupId/options/:optionId', async ({ params, body, set }) => {
+    const option = await prisma.option.findFirst({
+      where: { id: params.optionId }
+    })
+    if (!option) {
+      set.status = 404
+      return { message: 'Option not found' }
     }
-  )
 
-  // Delete Menu by RestaurantID and MenuID
-  // DELETE /api/merchant/:restaurant_id/menu/:menu_id
-  .delete(
-    '/:restaurant_id/menu/:menu_id',
-    async ({ params: { restaurant_id, menu_id }, set }) => {
-      const exists = await prisma.menuItem.findFirst({
-        where: { id: menu_id, merchantId: restaurant_id }
-      })
-      if (!exists) { set.status = 404; return 'Menu not found' }
-
-      await prisma.menuItem.delete({ where: { id: menu_id } })
-      set.status = 204
-      return null
-    },
-    {
-      detail: { tags: ['Menu'], summary: 'Delete Menu by RestaurantID and MenuID' },
-      params: t.Object({ restaurant_id: t.String(), menu_id: t.String() }),
-      response: { 204: t.Null(), 404: t.String() }
+    const group = await prisma.optionGroup.findFirst({
+      where: { id: option.optionGroupId }
+    })
+    if (!group) {
+      set.status = 404
+      return { message: 'Group not found' }
     }
-  )
 
-  // Edit Menu by RestaurantID and MenuID
-  // PUT /api/merchant/:restaurant_id/menu/:menu_id
-  .put(
-    '/:restaurant_id/menu/:menu_id',
-    async ({ params: { restaurant_id, menu_id }, body, set }) => {
-      const exists = await prisma.menuItem.findFirst({
-        where: { id: menu_id, merchantId: restaurant_id }
-      })
-      if (!exists) { set.status = 404; return 'Menu not found' }
-
-      const updated = await prisma.menuItem.update({
-        where: { id: menu_id },
-        data: body // Partial accepted by schema below
-      })
-      return updated
-    },
-    {
-      detail: { tags: ['Menu'], summary: 'Edit Menu by RestaurantID and MenuID' },
-      params: t.Object({ restaurant_id: t.String(), menu_id: t.String() }),
-      body: t.Partial(MenuItemInputCreate),
-      response: { 200: MenuItemPlain, 404: t.String() }
+    const menu = await prisma.menuItem.findFirst({
+      where: { id: group.menuId, merchantId: params.merchantId }
+    })
+    if (!menu) {
+      set.status = 403
+      return { message: 'Option does not belong to this merchant' }
     }
-  )
 
-  /* ========== RESTAURANT-WIDE GROUPS & OPTIONS (TEMPLATES) ========== */
+    const updated = await prisma.option.update({
+      where: { id: params.optionId },
+      data: body
+    })
 
-  // Get Options by RestaurantID
-  // GET /api/merchant/:restaurant_id/group
-  .get(
-    '/:restaurant_id/group',
-    async ({ params: { restaurant_id }, set }) => {
-      const groups = await prisma.optionGroupTemplate.findMany({
-        where: { merchantId: restaurant_id },
-        include: { options: true },
-        orderBy: { sortOrder: 'asc' }
-      })
-      if (!groups.length) { set.status = 404; return 'No groups found' }
-      return groups
-    },
-    {
-      detail: { tags: ['Options'], summary: 'Get Options by RestaurantID' },
-      params: t.Object({ restaurant_id: t.String() }),
-      response: {
-        200: t.Array(
-          t.Intersect([
-            OptionGroupTemplatePlain,
-            t.Object({ options: t.Array(OptionTemplatePlain) })
-          ])
-        ),
-        404: t.String()
-      }
+    return { ...updated, priceDelta: Number(updated.priceDelta) }
+  }, { body: OptionUpdate })
+
+  // Delete option
+  .delete('/:merchantId/group/:groupId/options/:optionId', async ({ params, set }) => {
+    const option = await prisma.option.findFirst({
+      where: { id: params.optionId }
+    })
+    if (!option) {
+      set.status = 404
+      return { message: 'Option not found' }
     }
-  )
 
-  // Post new options by RestaurantID (create a group, optionally with options)
-  // POST /api/merchant/:restaurant_id/group
-  .post(
-    '/:restaurant_id/group',
-    async ({ params: { restaurant_id }, body, set }) => {
-      const created = await prisma.optionGroupTemplate.create({
-        data: {
-          merchantId: restaurant_id,
-          name: body.name,
-          minSelect: body.minSelect ?? 0,
-          maxSelect: body.maxSelect ?? 1,
-          sortOrder: body.sortOrder ?? 0,
-          options: body.options
-            ? {
-              create: body.options.map(o => ({
-                name: o.name,
-                priceDelta: o.priceDelta,
-                sortOrder: o.sortOrder ?? 0,
-                active: o.active ?? true
-              }))
-            }
-            : undefined
-        },
-        include: { options: true }
-      })
-      set.status = 201
-      return created
-    },
-    {
-      detail: { tags: ['Options'], summary: 'Post new options by RestaurantID' },
-      params: t.Object({ restaurant_id: t.String() }),
-      body: t.Intersect([
-        OptionGroupInputCreate,
-        t.Object({ options: t.Optional(t.Array(OptionTemplatePlain)) })
-      ]),
-      response: t.Intersect([
-        OptionGroupTemplatePlain,
-        t.Object({ options: t.Array(OptionTemplatePlain) })
-      ])
+    const group = await prisma.optionGroup.findFirst({
+      where: { id: option.optionGroupId }
+    })
+    if (!group) {
+      set.status = 404
+      return { message: 'Group not found' }
     }
-  )
 
-  // Edit Option by RestaurantID, GroupID and OptionID
-  // PUT /api/merchant/:restaurant_id/group/:group_id/options/:option_id
-  .put(
-    '/:restaurant_id/group/:group_id/options/:option_id',
-    async ({ params: { restaurant_id, group_id, option_id }, body, set }) => {
-      const group = await prisma.optionGroupTemplate.findFirst({
-        where: { id: group_id, merchantId: restaurant_id }
-      })
-      if (!group) { set.status = 404; return 'Group not found' }
-
-      const updated = await prisma.optionTemplate.update({
-        where: { id: option_id },
-        data: body
-      })
-      return updated
-    },
-    {
-      detail: { tags: ['Options'], summary: 'Edit Option by RestaurantID, GroupID and OptionID' },
-      params: t.Object({
-        restaurant_id: t.String(),
-        group_id: t.String(),
-        option_id: t.String()
-      }),
-      body: OptionTemplateInputUpdate,
-      response: { 200: OptionTemplatePlain, 404: t.String() }
+    const menu = await prisma.menuItem.findFirst({
+      where: { id: group.menuId, merchantId: params.merchantId }
+    })
+    if (!menu) {
+      set.status = 403
+      return { message: 'Option does not belong to this merchant' }
     }
-  )
 
-  // Delete Option by RestaurantID, GroupID and OptionID
-  // DELETE /api/merchant/:restaurant_id/group/:group_id/options/:option_id
-  .delete(
-    '/:restaurant_id/group/:group_id/options/:option_id',
-    async ({ params: { restaurant_id, group_id, option_id }, set }) => {
-      const group = await prisma.optionGroupTemplate.findFirst({
-        where: { id: group_id, merchantId: restaurant_id }
-      })
-      if (!group) { set.status = 404; return 'Group not found' }
+    await prisma.option.delete({ where: { id: params.optionId } })
+    set.status = 204
+    return null
+  })
 
-      await prisma.optionTemplate.delete({ where: { id: option_id } })
-      set.status = 204
-      return null
-    },
-    {
-      detail: { tags: ['Options'], summary: 'Delete Option by RestaurantID, GroupID and OptionID' },
-      params: t.Object({
-        restaurant_id: t.String(),
-        group_id: t.String(),
-        option_id: t.String()
-      }),
-      response: { 204: t.Null(), 404: t.String() }
+  // Delete group
+  .delete('/:merchantId/group/:groupId', async ({ params, set }) => {
+    const group = await prisma.optionGroup.findFirst({
+      where: { id: params.groupId }
+    })
+    if (!group) {
+      set.status = 404
+      return { message: 'Group not found' }
     }
-  )
 
-  // Delete Group by RestaurantID, GroupID
-  // DELETE /api/merchant/:restaurant_id/group/:group_id
-  .delete(
-    '/:restaurant_id/group/:group_id',
-    async ({ params: { restaurant_id, group_id }, set }) => {
-      const group = await prisma.optionGroupTemplate.findFirst({
-        where: { id: group_id, merchantId: restaurant_id }
-      })
-      if (!group) { set.status = 404; return 'Group not found' }
-
-      await prisma.optionGroupTemplate.delete({ where: { id: group_id } })
-      set.status = 204
-      return null
-    },
-    {
-      detail: { tags: ['Options'], summary: 'Delete Group by RestaurantID, GroupID' },
-      params: t.Object({ restaurant_id: t.String(), group_id: t.String() }),
-      response: { 204: t.Null(), 404: t.String() }
+    const menu = await prisma.menuItem.findFirst({
+      where: { id: group.menuId, merchantId: params.merchantId }
+    })
+    if (!menu) {
+      set.status = 403
+      return { message: 'Group does not belong to this merchant' }
     }
-  )
+
+    await prisma.optionGroup.delete({ where: { id: params.groupId } })
+    set.status = 204
+    return null
+  })

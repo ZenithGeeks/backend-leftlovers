@@ -1,20 +1,13 @@
+
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
-generator prismabox { 
-  provider = "prismabox"
-  typeboxImportDependencyName = "elysia"
-  typeboxImportVariableName = "t"
-  inputModel = true
-  output   = "../generated/prismabox"
-} 
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")  // pooled (6543) for your running app
-  directUrl = env("DIRECT_URL")    // non-pooled (5432) for migrate/Studio
+  // directUrl = env("DIRECT_URL")    // non-pooled (5432) for migrate/Studio
 }
 
 // ============================ Enums ============================
@@ -179,10 +172,9 @@ model MenuItem {
   status         MenuItemStatus  @default(DRAFT)
   createdAt      DateTime        @default(now())
   photoUrl       String?
-  // NEW: for your “expiry date label” image
   expireLabelUrl String
 
-  merchant       Merchant        @relation(fields: [merchantId], references: [id], name: "MenuMerchant", onDelete: Cascade) //Cascade?
+  merchant       Merchant        @relation(fields: [merchantId],name: "MenuMerchant",  references: [id], onDelete: Cascade)
   optionGroups   OptionGroup[]   @relation("OptionGroupMenu")
   items          OrderItem[]     @relation("OrderItemMenu")
   inventoryLogs  InventoryLog[]
@@ -200,7 +192,6 @@ model OptionGroup {
   menu        MenuItem   @relation(fields: [menuId], references: [id], name: "OptionGroupMenu", onDelete: Cascade) //Cascade?
   options     Option[]   @relation("OptionToGroup")
 
-  @@unique([menuId, name])
   @@index([menuId])
 }
 
