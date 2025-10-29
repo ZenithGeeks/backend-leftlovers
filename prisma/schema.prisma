@@ -129,7 +129,7 @@ model User {
   complaints    Complaint[]
   auditLogs     AuditLog[]      @relation("ActorAuditLogs")
   employees     Employee[]
-  Order         Order[]
+  orders        Order[]         @relation("OrderUser")
 
   @@index([role])
 }
@@ -139,24 +139,20 @@ model Merchant {
   ownerUserId   String
   displayName   String
   description   String?
-  address       String?
-  lat           Decimal?        @db.Decimal(10,7)
-  lng           Decimal?        @db.Decimal(10,7)
+  categoryId    String
+  addressId     String
   openHours     Json?
-  isOpen        Boolean         @default(false)
   status        MerchantStatus  @default(PENDING)
   createdAt     DateTime        @default(now())
 
-  owner         User            @relation(fields: [ownerUserId], references: [id], name: "UserMerchants", onDelete: Cascade)
-  categories    Category[]
-  menuItems     MenuItem[]
+  owner         User            @relation(fields: [ownerUserId], references: [id], name: "UserMerchants", onDelete: Cascade) //Cascade?
+  address       Address         @relation(fields: [addressId], references: [id], name: "MerchantAddress", onDelete: Cascade)
+  category      Category        @relation(fields: [categoryId], references: [id], name: "MerchantCategory", onDelete: Cascade) //Cascade?
+  menu          MenuItem[]      @relation("MenuMerchant")
+  orders        Order[]         @relation("OrderMerchant")
   promotions    Promotion[]
-  orders        Order[]
   warnings      Warning[]
   employees     Employee[]
-
-  // NEW: reusable templates per-merchant
-  optionGroupTemplates OptionGroupTemplate[]
 
   @@index([ownerUserId])
   @@index([status])
@@ -164,128 +160,84 @@ model Merchant {
 
 model Category {
   id         String      @id @default(uuid())
-  merchantId String
-  parentId   String?
   name       String
 
-  merchant   Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  parent     Category?   @relation("CategoryToSelf", fields: [parentId], references: [id])
-  children   Category[]  @relation("CategoryToSelf")
-  menuItems  MenuItem[]
-
-  @@index([merchantId])
-  @@index([parentId])
-  @@unique([merchantId, name])
+  merchants  Merchant[]  @relation("MerchantCategory")
+  
+  @@unique([name])
 }
 
 model MenuItem {
-  id            String          @id @default(uuid())
-  merchantId    String
-  categoryId    String?
-  name          String
-  description   String?
-  basePrice     Decimal         @db.Decimal(10,2)
-  originalPrice Decimal?        @db.Decimal(10,2)
-  leftoverQty   Int             @default(0)
-  expiresAt     DateTime?
-  status        MenuItemStatus  @default(DRAFT)
-  createdAt     DateTime        @default(now())
-  photoUrl      String?
+  id             String          @id @default(uuid())
+  merchantId     String
+  name           String
+  description    String?
+  basePrice      Decimal         @db.Decimal(10,2)
+  originalPrice  Decimal?        @db.Decimal(10,2)
+  leftoverQty    Int             @default(0)
+  expiresAt      DateTime
+  status         MenuItemStatus  @default(DRAFT)
+  createdAt      DateTime        @default(now())
+  photoUrl       String?
   // NEW: for your “expiry date label” image
-  expireLabelUrl String?
+  expireLabelUrl String
 
-  merchant      Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  category      Category?       @relation(fields: [categoryId], references: [id])
-  optionGroups  OptionGroup[]
-  orderItems    OrderItem[]
-  inventoryLogs InventoryLog[]
+  merchant       Merchant        @relation(fields: [merchantId], references: [id], name: "MenuMerchant", onDelete: Cascade) //Cascade?
+  optionGroups   OptionGroup[]   @relation("OptionGroupMenu")
+  items          OrderItem[]     @relation("OrderItemMenu")
+  inventoryLogs  InventoryLog[]
 
-  @@index([merchantId])
-  @@index([categoryId])
   @@index([status, expiresAt])
 }
 
 model OptionGroup {
   id          String     @id @default(uuid())
-  menuItemId  String
+  menuId      String
   name        String
   minSelect   Int        @default(0)
   maxSelect   Int        @default(1)
-  sortOrder   Int        @default(0)
 
-  menuItem    MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  options     Option[]
+  menu        MenuItem   @relation(fields: [menuId], references: [id], name: "OptionGroupMenu", onDelete: Cascade) //Cascade?
+  options     Option[]   @relation("OptionToGroup")
 
-  @@unique([menuItemId, name])
-  @@index([menuItemId])
+  @@unique([menuId, name])
+  @@index([menuId])
 }
 
-model Option {
+model Option { //Multiple?
   id             String      @id @default(uuid())
   optionGroupId  String
   name           String
   priceDelta     Decimal     @db.Decimal(10,2)
-  sortOrder      Int         @default(0)
   active         Boolean     @default(true)
 
-  group          OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  optionGroup    OptionGroup @relation(fields: [optionGroupId], references: [id], name: "OptionToGroup", onDelete: Cascade) //Cascade?
   orderChoices   OrderItemOption[]
 
   @@unique([optionGroupId, name])
   @@index([optionGroupId])
 }
 
-// ============ NEW: Reusable templates to pick when creating items ============
-
-model OptionGroupTemplate {
-  id          String     @id @default(uuid())
-  merchantId  String
-  name        String
-  minSelect   Int        @default(0)
-  maxSelect   Int        @default(1)
-  sortOrder   Int        @default(0)
-
-  merchant    Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  options     OptionTemplate[]
-
-  @@unique([merchantId, name])
-  @@index([merchantId])
-}
-
-model OptionTemplate {
-  id                    String               @id @default(uuid())
-  optionGroupTemplateId String
-  name                  String
-  priceDelta            Decimal              @db.Decimal(10,2)
-  sortOrder             Int                  @default(0)
-  active                Boolean              @default(true)
-
-  groupTemplate         OptionGroupTemplate  @relation(fields: [optionGroupTemplateId], references: [id], onDelete: Cascade)
-
-  @@unique([optionGroupTemplateId, name])
-  @@index([optionGroupTemplateId])
-}
-
 // ============================ Orders/Payments/etc ============================
 
 model Order {
-  id             String        @id @default(uuid())
+  id             String                @id @default(uuid())
   customerId     String
   merchantId     String
-  status         OrderStatus   @default(PENDING)
-  subtotal       Decimal       @db.Decimal(10,2)
-  discountTotal  Decimal       @db.Decimal(10,2) @default(0)
-  totalAmount    Decimal       @db.Decimal(10,2)
-  paymentStatus  PaymentStatus @default(UNPAID)
-  pickupCode     String?       @unique
+  status         OrderStatus           @default(PENDING)
+  subtotal       Decimal               @db.Decimal(10,2)
+  discountTotal  Decimal               @db.Decimal(10,2) @default(0)
+  totalAmount    Decimal               @db.Decimal(10,2)
+  paymentStatus  PaymentStatus         @default(UNPAID)
+  pickupCode     String?               @unique
   pickupDeadline DateTime?
-  createdAt      DateTime      @default(now())
+  createdAt      DateTime              @default(now())
   preference     OrderPreference       @default(CONTACT)
   note           String?
 
-  customer       User          @relation(fields: [customerId], references: [id])
-  merchant       Merchant      @relation(fields: [merchantId], references: [id])
-  items          OrderItem[]
+  customer       User                  @relation(fields: [customerId], references: [id], name: "OrderUser", onDelete: Cascade) //Cascade?
+  merchant       Merchant              @relation(fields: [merchantId], references: [id], name: "OrderMerchant", onDelete: Cascade) //Cascade?
+  items          OrderItem[]           @relation("OrderItemOrder")
   payment        Payment?
   promoUsages    PromotionUsage[]
   inventoryLogs  InventoryLog[]
@@ -301,11 +253,9 @@ model OrderItem {
   orderId     String
   menuItemId  String
   quantity    Int
-  unitPrice   Decimal   @db.Decimal(10,2)
-  lineTotal   Decimal   @db.Decimal(10,2)
 
-  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id])
+  order       Order     @relation(fields: [orderId], references: [id], name: "OrderItemOrder", onDelete: Cascade) //Cascade?
+  menu        MenuItem  @relation(fields: [menuItemId], references: [id], name: "OrderItemMenu", onDelete: Cascade) //Cascade?
   options     OrderItemOption[]
 
   @@index([orderId])
@@ -443,7 +393,8 @@ model Address {
   lat        Decimal? @db.Decimal(10,7)
   lng        Decimal? @db.Decimal(10,7)
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchants   Merchant[] @relation("MerchantAddress")
 
   @@index([userId])
 }
