@@ -7,11 +7,12 @@
   },
   "dependencies": {
     "@elysiajs/openapi": "^1.4.11",
+    "@prisma/client": "^6.18.0",
     "elysia": "latest"
   },
   "devDependencies": {
     "bun-types": "latest",
-    "prisma": "^6.16.3",
+    "prisma": "^6.18.0",
     "prisma-erd-generator": "^2.1.0"
   },
   "module": "src/index.js"
