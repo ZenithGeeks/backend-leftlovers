@@ -7,7 +7,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")  // pooled (6543) for your running app
-  // directUrl = env("DIRECT_URL")    // non-pooled (5432) for migrate/Studio
 }
 
 // ============================ Enums ============================
@@ -149,6 +148,7 @@ model Merchant {
 
   @@index([ownerUserId])
   @@index([status])
+  OptionGroup OptionGroup[] @relation(name: "OptionGroupMerchant")
 }
 
 model Category {
@@ -184,15 +184,14 @@ model MenuItem {
 
 model OptionGroup {
   id          String     @id @default(uuid())
-  menuId      String
   name        String
+  merchantId  String
   minSelect   Int        @default(0)
   maxSelect   Int        @default(1)
 
-  menu        MenuItem   @relation(fields: [menuId], references: [id], name: "OptionGroupMenu", onDelete: Cascade) //Cascade?
+  merchant    Merchant        @relation(fields: [merchantId],name: "OptionGroupMerchant",  references: [id], onDelete: Cascade)
+  menu        MenuItem[]   @relation("OptionGroupMenu")
   options     Option[]   @relation("OptionToGroup")
-
-  @@index([menuId])
 }
 
 model Option { //Multiple?
