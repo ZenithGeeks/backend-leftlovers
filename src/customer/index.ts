@@ -1,4 +1,4 @@
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
 import {
   PrismaClient,
   Prisma,
@@ -7,21 +7,18 @@ import {
   OrderPreference
 } from '@prisma/client'
 
+import {
+  MerchantParamSchema,
+  OrderCreateSchema,
+  ErrorSchema,
+  SuccessCreatedOrderSchema,
+  type MenuWithGroups,
+  type PriceLine
+} from '../../types'
+
 const prisma = new PrismaClient()
 
-/* ============================== Types & Utils ============================= */
-type MenuWithGroups = Prisma.MenuItemGetPayload<{
-  include: { optionGroups: { include: { options: true } } }
-}>
-
-type PriceLine = {
-  menuId: string
-  qty: number
-  unit: Prisma.Decimal
-  line: Prisma.Decimal
-  optionIds: string[]
-}
-
+/* ============================== Helpers ============================== */
 class OrderError extends Error {
   http: number
   constructor(http: number, msg: string) {
@@ -36,7 +33,6 @@ const now = () => new Date()
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000
 const genPickupCode = () => Math.floor(100000 + Math.random() * 900000).toString()
 
-/* Compute pickup deadline = min(soonest expiresAt, now + 2h) */
 function computePickupDeadline(menus: MenuWithGroups[]): Date {
   const n = now()
   const plus2h = new Date(n.getTime() + TWO_HOURS_MS)
@@ -46,7 +42,6 @@ function computePickupDeadline(menus: MenuWithGroups[]): Date {
   return earliest < plus2h ? earliest : plus2h
 }
 
-/* Validate that chosen options belong to the menu and obey each group's min/max */
 function validateOptionsOrThrow(
   items: Array<{ menuItemId: string; optionIds?: string[] }>,
   menuMap: Map<string, MenuWithGroups>
@@ -71,7 +66,6 @@ function validateOptionsOrThrow(
   }
 }
 
-/* Price lines per item (unit with option deltas, line total, selected option ids) */
 function buildPriceBreakdown(
   items: Array<{ menuItemId: string; quantity: number; optionIds?: string[] }>,
   menuMap: Map<string, MenuWithGroups>
@@ -92,35 +86,18 @@ function buildPriceBreakdown(
   })
 }
 
-/* ================================ Schemas ================================ */
-const ParamsSchema = t.Object({ merchantId: t.String({ format: 'uuid' }) })
-
-const OrderItemInput = t.Object({
-  menuItemId: t.String({ format: 'uuid' }),
-  quantity: t.Integer({ minimum: 1 }),
-  optionIds: t.Optional(t.Array(t.String({ format: 'uuid' })))
-})
-
-const PostOrderSchema = t.Object({
-  customerId: t.String({ format: 'uuid' }),
-  preference: t.Optional(t.Enum(OrderPreference)),
-  note: t.Optional(t.String({ maxLength: 1000 })),
-  items: t.Array(OrderItemInput, { minItems: 1 })
-})
-
-const ErrorSchema = t.Object({ message: t.String() })
-const SuccessSchema = t.Object({
-  message: t.Literal('Order created'),
-  order: t.Any()
-})
-
 /* ================================= Route ================================= */
 export const Customer = new Elysia({ prefix: '/customer' }).post(
   '/:merchantId/order',
   async ({ params, body, set }) => {
     try {
-      const { merchantId } = params
-      const { customerId, items, preference, note } = body
+      const { merchantId } = params as { merchantId: string }
+      const { customerId, items, preference, note } = body as {
+        customerId: string
+        items: Array<{ menuItemId: string; quantity: number; optionIds?: string[] }>
+        preference?: OrderPreference
+        note?: string
+      }
 
       const merchant = await prisma.merchant.findUnique({
         where: { id: merchantId },
@@ -242,10 +219,10 @@ export const Customer = new Elysia({ prefix: '/customer' }).post(
     }
   },
   {
-    params: ParamsSchema,
-    body: PostOrderSchema,
+    params: MerchantParamSchema,
+    body: OrderCreateSchema,
     response: {
-      201: SuccessSchema,
+      201: SuccessCreatedOrderSchema,
       400: ErrorSchema,
       404: ErrorSchema,
       409: ErrorSchema,
