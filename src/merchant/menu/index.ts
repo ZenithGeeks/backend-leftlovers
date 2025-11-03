@@ -5,10 +5,6 @@ const prisma = new PrismaClient()
 
 /* ------------------- 🧩 Reusable Validation Schemas ------------------- */
 
-
-
-
-
 const GroupCreate = t.Object({
   name: t.String(),
   merchantId: t.String(),
@@ -130,7 +126,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     }
 
     return items.map(castMenuItem)
-  })
+    },{tags: ['Menu']})
 
   // Get single menu (now returns nested groups + options, casted)
   .get('/:merchantId/menu/:menuId', async ({ params, set }) => {
@@ -149,7 +145,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     }
 
     return castMenuItem(item)
-  })
+  },{tags: ['Menu']})
 
   // Create menu
   .post('/:merchantId/menu', async ({ params, body, set }) => {
@@ -187,7 +183,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
 
     set.status = 201
     return castMenuItem(created)
-  }, { body: MenuCreate })
+  }, { body: MenuCreate, tags: ['Menu'] })
 
   // Update menu
   .put('/:merchantId/menu/:menuId', async ({ params, body, set }) => {
@@ -208,7 +204,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     })
 
     return castMenuItem(updated)
-  }, { body: MenuUpdate })
+  }, { body: MenuUpdate, tags: ['Menu'] })
   // Delete menu
   .delete('/:merchantId/menu/:menuId', async ({ params, set }) => {
     const exists = await prisma.menuItem.findFirst({
@@ -222,7 +218,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     await prisma.menuItem.delete({ where: { id: params.menuId } })
     set.status = 204
     return null
-  })
+    },{tags: ['Menu']})
 
   /* ===================== GROUPS ===================== */
 
@@ -241,7 +237,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     ...g,
     options: g.options.map(o => ({ ...o, priceDelta: Number(o.priceDelta) }))
   }))
-})
+  },{tags: ['Options']})
 
   // Create group (with options)
   .post('/:merchantId/group', async ({ params, body, set }) => {
@@ -278,7 +274,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     ...created,
     options: created.options.map(o => ({ ...o, priceDelta: Number(o.priceDelta) }))
   }
-}, { body: GroupCreate })
+}, { body: GroupCreate , tags: ['Options']})
 
   // Update group
   .put('/:merchantId/group/:groupId', async ({ params, body, set }) => {
@@ -299,7 +295,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
   })
 
   return updated
-}, { body: GroupUpdate })
+}, { body: GroupUpdate, tags: ['Options'] })
 
   // Create option in group
 .post('/:merchantId/group/:groupId/options', async ({ params, body, set }) => {
@@ -325,7 +321,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
 
   set.status = 201
   return { ...created, priceDelta: Number(created.priceDelta) }
-}, { body: OptionCreate })
+}, { body: OptionCreate, tags: ['Options'] })
 
 .put('/:merchantId/group/:groupId/options/:optionId', async ({ params, body, set }) => {
   const option = await prisma.option.findFirst({
@@ -345,7 +341,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
   })
 
   return { ...updated, priceDelta: Number(updated.priceDelta) }
-}, { body: OptionUpdate })
+}, { body: OptionUpdate, tags: ['Options']})
 
 // Delete option
 .delete('/:merchantId/group/:groupId/options/:optionId', async ({ params, set }) => {
@@ -363,7 +359,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
   await prisma.option.delete({ where: { id: params.optionId } })
   set.status = 204
   return null
-})
+ },{tags: ['Options']})
 
   .delete('/:merchantId/group/:groupId', async ({ params, set }) => {
   const group = await prisma.optionGroup.findFirst({
@@ -380,4 +376,4 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
   await prisma.optionGroup.delete({ where: { id: params.groupId } })
   set.status = 204
   return null
-})
+ },{tags: ['Options']})

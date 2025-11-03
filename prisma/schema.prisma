@@ -136,6 +136,10 @@ model Merchant {
   openHours     Json?
   status        MerchantStatus  @default(PENDING)
   createdAt     DateTime        @default(now())
+  listImageUrl  String?
+  StoreImageUrl String?
+
+
 
   owner         User            @relation(fields: [ownerUserId], references: [id], name: "UserMerchants", onDelete: Cascade) //Cascade?
   address       Address         @relation(fields: [addressId], references: [id], name: "MerchantAddress", onDelete: Cascade)
