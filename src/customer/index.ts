@@ -87,7 +87,8 @@ function buildPriceBreakdown(
 }
 
 /* ================================= Route ================================= */
-export const Customer = new Elysia({ prefix: '/customer' }).post(
+export const Customer = new Elysia({ prefix: '/customer' })
+.post(
   '/:merchantId/order',
   async ({ params, body, set }) => {
     try {
@@ -234,3 +235,38 @@ export const Customer = new Elysia({ prefix: '/customer' }).post(
     }
   }
 )
+
+.get('/:merchantId/order/:orderId', async ({ params, set }) => {
+    const order = await prisma.order.findFirst({
+      where: { id: params.orderId, merchantId: params.merchantId },
+    })
+    if (!order) {
+      set.status = 404
+      return { message: 'Menu not found' }
+    }
+    return order
+}, { tags: ['Order'] })
+
+.get('/:merchantId/order/:orderId', async ({ params, set }) => {
+    const order = await prisma.order.findFirst({
+      where: { id: params.orderId, merchantId: params.merchantId },
+    })
+    if (!order) {
+      set.status = 404
+      return { message: 'Menu not found' }
+    }
+    return order
+}, { tags: ['Order'] })
+
+.get('/address/:addressId', async ({ params, set }) => {
+    const order = await prisma.address.findFirst({
+      where: { id: params.addressId},
+    })
+    if (!order) {
+      set.status = 404
+      return { message: 'Menu not found' }
+    }
+    return order
+}, { tags: ['Order'] })
+
+
