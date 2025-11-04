@@ -1,10 +1,12 @@
+
 generator client {
   provider = "prisma-client-js"
 }
 
+
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // pooled (6543) for your running app
 }
 
 // ============================ Enums ============================
@@ -97,6 +99,8 @@ enum EmployeeStatus {
   DISABLED
 }
 
+
+
 // ============================ Models ============================
 
 model User {
@@ -130,6 +134,10 @@ model Merchant {
   openHours     Json?
   status        MerchantStatus  @default(PENDING)
   createdAt     DateTime        @default(now())
+  listImageUrl  String?
+  StoreImageUrl String?
+
+
 
   user          User            @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
   address       Address         @relation(fields: [addressId], references: [id], onDelete: Cascade)
@@ -144,6 +152,7 @@ model Merchant {
 
   @@index([ownerUserId])
   @@index([status])
+  OptionGroup OptionGroup[] @relation(name: "OptionGroupMerchant")
 }
 
 model Category {
