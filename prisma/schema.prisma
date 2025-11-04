@@ -152,7 +152,6 @@ model Merchant {
 
   @@index([ownerUserId])
   @@index([status])
-  OptionGroup OptionGroup[] @relation(name: "OptionGroupMerchant")
 }
 
 model Category {
