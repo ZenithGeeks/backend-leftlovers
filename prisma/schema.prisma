@@ -1,12 +1,10 @@
-
 generator client {
   provider = "prisma-client-js"
 }
 
-
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")  // pooled (6543) for your running app
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============================ Enums ============================
@@ -99,29 +97,25 @@ enum EmployeeStatus {
   DISABLED
 }
 
-
-
 // ============================ Models ============================
 
 model User {
   id            String          @id @default(uuid())
   role          Role
   name          String
+  username      String          @unique
   email         String          @unique
   phone         String?
+  dob           DateTime
   avatarUrl     String?
   status        UserStatus      @default(ACTIVE)
   createdAt     DateTime        @default(now())
 
-  merchants     Merchant[]      @relation("UserMerchants")
-  addresses     Address[]
-  devices       Device[]
+  merchants     Merchant[]
+  orders        Order[]
   notifications Notification[]
-  reviews       Review[]
-  complaints    Complaint[]
-  auditLogs     AuditLog[]      @relation("ActorAuditLogs")
-  employees     Employee[]
-  orders        Order[]         @relation("OrderUser")
+  employee      Employee?
+  favorites     Favorite[]
 
   @@index([role])
 }
@@ -136,19 +130,17 @@ model Merchant {
   openHours     Json?
   status        MerchantStatus  @default(PENDING)
   createdAt     DateTime        @default(now())
-  listImageUrl  String?
-  StoreImageUrl String?
 
-
-
-  owner         User            @relation(fields: [ownerUserId], references: [id], name: "UserMerchants", onDelete: Cascade) //Cascade?
-  address       Address         @relation(fields: [addressId], references: [id], name: "MerchantAddress", onDelete: Cascade)
-  category      Category        @relation(fields: [categoryId], references: [id], name: "MerchantCategory", onDelete: Cascade) //Cascade?
-  menu          MenuItem[]      @relation("MenuMerchant")
-  orders        Order[]         @relation("OrderMerchant")
+  user          User            @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  address       Address         @relation(fields: [addressId], references: [id], onDelete: Cascade)
+  category      Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  menuItems     MenuItem[]
+  orders        Order[]
   promotions    Promotion[]
   warnings      Warning[]
   employees     Employee[]
+  branches      Branch[]
+  favorite      Favorite[]
 
   @@index([ownerUserId])
   @@index([status])
@@ -158,57 +150,59 @@ model Category {
   id         String      @id @default(uuid())
   name       String
 
-  merchants  Merchant[]  @relation("MerchantCategory")
-  
+  merchants  Merchant[]
+
   @@unique([name])
 }
 
 model MenuItem {
-  id             String          @id @default(uuid())
-  merchantId     String
-  name           String
-  description    String?
-  basePrice      Decimal         @db.Decimal(10,2)
-  originalPrice  Decimal?        @db.Decimal(10,2)
-  leftoverQty    Int             @default(0)
-  expiresAt      DateTime
-  status         MenuItemStatus  @default(DRAFT)
-  createdAt      DateTime        @default(now())
-  photoUrl       String?
+  id            String          @id @default(uuid())
+  merchantId    String
+  branchId      String
+  name          String
+  description   String?
+  basePrice     Decimal         @db.Decimal(10,2)
+  originalPrice Decimal?        @db.Decimal(10,2)
+  leftoverQty   Int             @default(0)
+  expiresAt     DateTime?
+  status        MenuItemStatus  @default(DRAFT)
+  createdAt     DateTime        @default(now())
+  photoUrl      String?
   // NEW: for your “expiry date label” image
-  expireLabelUrl String
+  expireLabelUrl String?
 
-  merchant       Merchant        @relation(fields: [merchantId], references: [id], name: "MenuMerchant", onDelete: Cascade) //Cascade?
-  optionGroups   OptionGroup[]   @relation("OptionGroupMenu")
-  items          OrderItem[]     @relation("OrderItemMenu")
-  inventoryLogs  InventoryLog[]
+  merchant      Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  branch        Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  optionGroups  OptionGroup[]
+  orderItems    OrderItem[]
 
+  @@index([merchantId])
   @@index([status, expiresAt])
 }
 
 model OptionGroup {
   id          String     @id @default(uuid())
-  menuId      String
+  menuItemId  String
   name        String
   minSelect   Int        @default(0)
   maxSelect   Int        @default(1)
 
-  menu        MenuItem   @relation(fields: [menuId], references: [id], name: "OptionGroupMenu", onDelete: Cascade) //Cascade?
-  options     Option[]   @relation("OptionToGroup")
+  menuItem    MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  options     Option[]
 
-  @@unique([menuId, name])
-  @@index([menuId])
+  @@unique([menuItemId, name])
+  @@index([menuItemId])
 }
 
-model Option { //Multiple?
+model Option {
   id             String      @id @default(uuid())
   optionGroupId  String
   name           String
   priceDelta     Decimal     @db.Decimal(10,2)
   active         Boolean     @default(true)
 
-  optionGroup    OptionGroup @relation(fields: [optionGroupId], references: [id], name: "OptionToGroup", onDelete: Cascade) //Cascade?
-  orderChoices   OrderItemOption[]
+  optionGroup    OptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  orderItemOption     OrderItemOption[]
 
   @@unique([optionGroupId, name])
   @@index([optionGroupId])
@@ -217,26 +211,27 @@ model Option { //Multiple?
 // ============================ Orders/Payments/etc ============================
 
 model Order {
-  id             String                @id @default(uuid())
+  id             String        @id @default(uuid())
   customerId     String
   merchantId     String
-  status         OrderStatus           @default(PENDING)
-  subtotal       Decimal               @db.Decimal(10,2)
-  discountTotal  Decimal               @db.Decimal(10,2) @default(0)
-  totalAmount    Decimal               @db.Decimal(10,2)
-  paymentStatus  PaymentStatus         @default(UNPAID)
-  pickupCode     String?               @unique
+  branchId       String
+  status         OrderStatus   @default(PENDING)
+  subtotal       Decimal       @db.Decimal(10,2)
+  discountTotal  Decimal       @db.Decimal(10,2) @default(0)
+  totalAmount    Decimal       @db.Decimal(10,2)
+  paymentStatus  PaymentStatus @default(UNPAID)
+  pickupCode     String?       @unique
   pickupDeadline DateTime?
-  createdAt      DateTime              @default(now())
+  createdAt      DateTime      @default(now())
   preference     OrderPreference       @default(CONTACT)
   note           String?
 
-  customer       User                  @relation(fields: [customerId], references: [id], name: "OrderUser", onDelete: Cascade) //Cascade?
-  merchant       Merchant              @relation(fields: [merchantId], references: [id], name: "OrderMerchant", onDelete: Cascade) //Cascade?
-  items          OrderItem[]           @relation("OrderItemOrder")
+  user           User          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  merchant       Merchant      @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  branch         Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  orderItems     OrderItem[]
   payment        Payment?
-  promoUsages    PromotionUsage[]
-  inventoryLogs  InventoryLog[]
+  promotionUsages         PromotionUsage[]
   review         Review?
   complaint      Complaint?
 
@@ -249,10 +244,11 @@ model OrderItem {
   orderId     String
   menuItemId  String
   quantity    Int
+  unitPrice   Decimal   @db.Decimal(10,2)
 
-  order       Order     @relation(fields: [orderId], references: [id], name: "OrderItemOrder", onDelete: Cascade) //Cascade?
-  menu        MenuItem  @relation(fields: [menuItemId], references: [id], name: "OrderItemMenu", onDelete: Cascade) //Cascade?
-  options     OrderItemOption[]
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem    MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  orderItemOptions OrderItemOption[]
 
   @@index([orderId])
   @@index([menuItemId])
@@ -262,10 +258,9 @@ model OrderItemOption {
   id            String   @id @default(uuid())
   orderItemId   String
   optionId      String
-  priceDelta    Decimal  @db.Decimal(10,2)
 
   orderItem     OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  option        Option    @relation(fields: [optionId], references: [id])
+  option        Option    @relation(fields: [optionId], references: [id], onDelete: Restrict)
 
   @@unique([orderItemId, optionId])
   @@index([optionId])
@@ -274,12 +269,10 @@ model OrderItemOption {
 model Payment {
   id                 String        @id @default(uuid())
   orderId            String        @unique
-  merchantId         String  
   provider           String
   providerChargeId   String?
   amount             Decimal       @db.Decimal(10,2)
   currency           String        @default("THB")
-  status             PaymentStatus @default(UNPAID)
   paidAt             DateTime?
 
   order              Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -288,6 +281,7 @@ model Payment {
 model Promotion {
   id           String        @id @default(uuid())
   merchantId   String
+  branchId     String
   name         String
   type         PromotionType
   value        Decimal       @db.Decimal(10,2)
@@ -298,7 +292,8 @@ model Promotion {
   active       Boolean       @default(false)
 
   merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  usages       PromotionUsage[]
+  promotionUsages       PromotionUsage[]
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   @@unique([merchantId, name])
   @@index([merchantId, active])
@@ -316,62 +311,41 @@ model PromotionUsage {
   @@index([promotionId])
 }
 
-model InventoryLog {
-  id          String   @id @default(uuid())
-  menuItemId  String
-  orderId     String?
-  change      Int
-  reason      String
-  createdAt   DateTime @default(now())
-
-  menuItem    MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  order       Order?   @relation(fields: [orderId], references: [id])
-
-  @@index([menuItemId, createdAt])
-  @@index([orderId])
-}
-
 model Review {
   id          String   @id @default(uuid())
   orderId     String   @unique
-  customerId  String
   rating      Int
   comment     String?
-  tags        String?
   createdAt   DateTime @default(now())
 
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  customer    User     @relation(fields: [customerId], references: [id])
-
-  @@index([customerId])
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
 }
 
 model Complaint {
   id          String          @id @default(uuid())
   orderId     String          @unique
-  customerId  String
   type        ComplaintType
   description String?
   status      ComplaintStatus @default(OPEN)
   createdAt   DateTime        @default(now())
 
-  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  customer    User            @relation(fields: [customerId], references: [id])
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
   warning     Warning?
 
-  @@index([customerId, status])
+  @@index([status])
 }
 
 model Warning {
   id              String        @id @default(uuid())
   merchantId      String
-  complaintId     String?       @unique
+  branchId        String
+  complaintId     String        @unique
   suspensionDays  Int?
   issuedAt        DateTime      @default(now())
-  expiresAt       DateTime?
 
   merchant        Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  complaint       Complaint?    @relation(fields: [complaintId], references: [id])
+  complaint       Complaint     @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   @@index([merchantId])
   @@index([complaintId])
@@ -379,8 +353,6 @@ model Warning {
 
 model Address {
   id         String   @id @default(uuid())
-  userId     String
-  label      String?
   line1      String
   line2      String?
   city       String?
@@ -389,28 +361,12 @@ model Address {
   lat        Decimal? @db.Decimal(10,7)
   lng        Decimal? @db.Decimal(10,7)
 
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  merchants   Merchant[] @relation("MerchantAddress")
-
-  @@index([userId])
-}
-
-model Device {
-  id         String    @id @default(uuid())
-  userId     String
-  platform   Platform
-  pushToken  String?
-  createdAt  DateTime  @default(now())
-
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, platform])
+  merchants  Merchant[]
 }
 
 model Notification {
   id        String   @id @default(uuid())
   userId    String
-  type      String
   title     String
   body      String
   readAt    DateTime?
@@ -421,38 +377,52 @@ model Notification {
   @@index([userId, createdAt])
 }
 
-model AuditLog {
-  id          String   @id @default(uuid())
-  actorUserId String?
-  action      String
-  targetType  String
-  targetId    String?
-  meta        Json?
-  createdAt   DateTime @default(now())
-
-  actor       User?    @relation(fields: [actorUserId], references: [id], name: "ActorAuditLogs", onDelete: SetNull)
-
-  @@index([actorUserId, createdAt])
-}
-
 model Employee {
   id            String         @id @default(uuid())
   merchantId    String
-  userId        String?
-  fullName      String
-  username      String?        @unique
-  email         String?
-  mobileNumber  String?
+  userId        String         @unique
+  branchId      String
   role          EmployeeRole   @default(STOCK)
   status        EmployeeStatus @default(ACTIVE)
   createdAt     DateTime       @default(now())
   disabledAt    DateTime?
 
   merchant      Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  user          User?          @relation(fields: [userId], references: [id])
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch        Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   @@index([merchantId])
   @@index([role, status])
+}
+
+model Branch {
+    id          String      @id @default(uuid())
+    merchantId  String
+    name        String
+    rating      Decimal     @db.Decimal(1, 1)
+    numReviews  Int
+    open        DateTime
+    close       DateTime
+
+    merchant    Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+    favorites   Favorite[]
+    employees   Employee[]
+    warnings    Warning[]
+    promotions  Promotion[]
+    orders      Order[]
+    menuItems   MenuItem[]
+}
+
+model Favorite {
+    userId      String
+    merchantId  String
+    branchId    String
+
+    user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+    merchant    Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+    branch      Branch      @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+    @@id([userId, merchantId, branchId])
 }
 
 generator erd {
