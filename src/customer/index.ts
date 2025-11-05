@@ -165,7 +165,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
                 subtotal,
                 discountTotal,
                 totalAmount,
-                paymentStatus: PaymentStatus.UNPAID,
+                paymentStatus: PaymentStatus.PAID,
                 pickupCode: genPickupCode(),
                 pickupDeadline,
                 preference: preference ?? OrderPreference.CONTACT,
@@ -238,10 +238,9 @@ export const Customer = new Elysia({ prefix: "/customer" })
             return tx.order.findUnique({
               where: { id: order.id },
               include: {
-                orderItems: {
+                items: {
                   include: {
-                    menuItem: true,
-                    orderItemOptions: { include: { option: true } },
+                    options: { include: { option: true } },
                   },
                 },
                 payment: true,
@@ -300,15 +299,9 @@ export const Customer = new Elysia({ prefix: "/customer" })
       const order = await prisma.order.findFirst({
         where: { id: params.orderId, merchantId: params.merchantId },
         include: {
-          orderItems: {
+          items: {
             include: {
-              menuItem: {
-                select: {
-                  id: true,
-                  name: true,
-                  basePrice: true,
-                },
-              },
+              options: true
             },
           },
           merchant: {

@@ -11,6 +11,7 @@ async function main() {
       email: 'alice@example.com',
       phone: '0812345672',
       avatarUrl: 'https://i.pravatar.cc/150?img=3',
+      dob: new Date()
     }
   })
   const owner = await prisma.user.create({
@@ -20,6 +21,7 @@ async function main() {
       email: 'merchant2@example.com',
       phone: '0899999993',
       avatarUrl: 'https://i.pravatar.cc/150?img=3',
+      dob: new Date()
     }
   })
 
@@ -98,7 +100,7 @@ async function main() {
   console.log('menuItemId:', menuItem.id)
   const firstOptionId = optionGroup.options[0]?.id
 console.log('optionId:', firstOptionId)
-
+  
   console.log('\nUse these values in your POST /customer/:merchantId/order test.')
 }
 
