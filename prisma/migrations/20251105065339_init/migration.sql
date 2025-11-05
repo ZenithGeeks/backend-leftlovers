@@ -45,8 +45,10 @@ CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "role" "Role" NOT NULL,
     "name" TEXT NOT NULL,
+    "username" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "phone" TEXT,
+    "dob" TIMESTAMP(3) NOT NULL,
     "avatarUrl" TEXT,
     "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +61,7 @@ CREATE TABLE "Merchant" (
     "id" TEXT NOT NULL,
     "ownerUserId" TEXT NOT NULL,
     "displayName" TEXT NOT NULL,
+    "branchName" TEXT,
     "description" TEXT,
     "categoryId" TEXT NOT NULL,
     "addressId" TEXT NOT NULL,
@@ -90,7 +93,7 @@ CREATE TABLE "MenuItem" (
     "status" "MenuItemStatus" NOT NULL DEFAULT 'DRAFT',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "photoUrl" TEXT,
-    "expireLabelUrl" TEXT NOT NULL,
+    "expireLabelUrl" TEXT,
 
     CONSTRAINT "MenuItem_pkey" PRIMARY KEY ("id")
 );
@@ -98,7 +101,7 @@ CREATE TABLE "MenuItem" (
 -- CreateTable
 CREATE TABLE "OptionGroup" (
     "id" TEXT NOT NULL,
-    "menuId" TEXT NOT NULL,
+    "merchantId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "minSelect" INTEGER NOT NULL DEFAULT 0,
     "maxSelect" INTEGER NOT NULL DEFAULT 1,
@@ -127,8 +130,8 @@ CREATE TABLE "Order" (
     "discountTotal" DECIMAL(10,2) NOT NULL DEFAULT 0,
     "totalAmount" DECIMAL(10,2) NOT NULL,
     "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'UNPAID',
-    "pickupCode" TEXT,
-    "pickupDeadline" TIMESTAMP(3),
+    "pickupCode" TEXT NOT NULL,
+    "pickupDeadline" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "preference" "OrderPreference" NOT NULL DEFAULT 'CONTACT',
     "note" TEXT,
@@ -151,7 +154,6 @@ CREATE TABLE "OrderItemOption" (
     "id" TEXT NOT NULL,
     "orderItemId" TEXT NOT NULL,
     "optionId" TEXT NOT NULL,
-    "priceDelta" DECIMAL(10,2) NOT NULL,
 
     CONSTRAINT "OrderItemOption_pkey" PRIMARY KEY ("id")
 );
@@ -162,7 +164,7 @@ CREATE TABLE "Payment" (
     "orderId" TEXT NOT NULL,
     "merchantId" TEXT NOT NULL,
     "provider" TEXT NOT NULL,
-    "providerChargeId" TEXT,
+    "providerChargeId" TEXT NOT NULL,
     "amount" DECIMAL(10,2) NOT NULL,
     "currency" TEXT NOT NULL DEFAULT 'THB',
     "status" "PaymentStatus" NOT NULL DEFAULT 'UNPAID',
@@ -213,10 +215,8 @@ CREATE TABLE "InventoryLog" (
 CREATE TABLE "Review" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
-    "customerId" TEXT NOT NULL,
     "rating" INTEGER NOT NULL,
     "comment" TEXT,
-    "tags" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Review_pkey" PRIMARY KEY ("id")
@@ -226,7 +226,6 @@ CREATE TABLE "Review" (
 CREATE TABLE "Complaint" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
-    "customerId" TEXT NOT NULL,
     "type" "ComplaintType" NOT NULL,
     "description" TEXT,
     "status" "ComplaintStatus" NOT NULL DEFAULT 'OPEN',
@@ -239,10 +238,9 @@ CREATE TABLE "Complaint" (
 CREATE TABLE "Warning" (
     "id" TEXT NOT NULL,
     "merchantId" TEXT NOT NULL,
-    "complaintId" TEXT,
+    "complaintId" TEXT NOT NULL,
     "suspensionDays" INTEGER,
     "issuedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "expiresAt" TIMESTAMP(3),
 
     CONSTRAINT "Warning_pkey" PRIMARY KEY ("id")
 );
@@ -250,8 +248,6 @@ CREATE TABLE "Warning" (
 -- CreateTable
 CREATE TABLE "Address" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "label" TEXT,
     "line1" TEXT NOT NULL,
     "line2" TEXT,
     "city" TEXT,
@@ -264,21 +260,9 @@ CREATE TABLE "Address" (
 );
 
 -- CreateTable
-CREATE TABLE "Device" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "platform" "Platform" NOT NULL,
-    "pushToken" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "Device_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Notification" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "body" TEXT NOT NULL,
     "readAt" TIMESTAMP(3),
@@ -288,27 +272,10 @@ CREATE TABLE "Notification" (
 );
 
 -- CreateTable
-CREATE TABLE "AuditLog" (
-    "id" TEXT NOT NULL,
-    "actorUserId" TEXT,
-    "action" TEXT NOT NULL,
-    "targetType" TEXT NOT NULL,
-    "targetId" TEXT,
-    "meta" JSONB,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "Employee" (
     "id" TEXT NOT NULL,
     "merchantId" TEXT NOT NULL,
-    "userId" TEXT,
-    "fullName" TEXT NOT NULL,
-    "username" TEXT,
-    "email" TEXT,
-    "mobileNumber" TEXT,
+    "userId" TEXT NOT NULL,
     "role" "EmployeeRole" NOT NULL DEFAULT 'STOCK',
     "status" "EmployeeStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -316,6 +283,25 @@ CREATE TABLE "Employee" (
 
     CONSTRAINT "Employee_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateTable
+CREATE TABLE "Favorite" (
+    "userId" TEXT NOT NULL,
+    "merchantId" TEXT NOT NULL,
+
+    CONSTRAINT "Favorite_pkey" PRIMARY KEY ("userId","merchantId")
+);
+
+-- CreateTable
+CREATE TABLE "_MenuItemToOptionGroup" (
+    "A" TEXT NOT NULL,
+    "B" TEXT NOT NULL,
+
+    CONSTRAINT "_MenuItemToOptionGroup_AB_pkey" PRIMARY KEY ("A","B")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
@@ -333,10 +319,13 @@ CREATE INDEX "Merchant_status_idx" ON "Merchant"("status");
 CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
 
 -- CreateIndex
+CREATE INDEX "MenuItem_merchantId_idx" ON "MenuItem"("merchantId");
+
+-- CreateIndex
 CREATE INDEX "MenuItem_status_expiresAt_idx" ON "MenuItem"("status", "expiresAt");
 
 -- CreateIndex
-CREATE INDEX "OptionGroup_menuId_idx" ON "OptionGroup"("menuId");
+CREATE UNIQUE INDEX "OptionGroup_name_key" ON "OptionGroup"("name");
 
 -- CreateIndex
 CREATE INDEX "Option_optionGroupId_idx" ON "Option"("optionGroupId");
@@ -390,13 +379,10 @@ CREATE INDEX "InventoryLog_orderId_idx" ON "InventoryLog"("orderId");
 CREATE UNIQUE INDEX "Review_orderId_key" ON "Review"("orderId");
 
 -- CreateIndex
-CREATE INDEX "Review_customerId_idx" ON "Review"("customerId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "Complaint_orderId_key" ON "Complaint"("orderId");
 
 -- CreateIndex
-CREATE INDEX "Complaint_customerId_status_idx" ON "Complaint"("customerId", "status");
+CREATE INDEX "Complaint_status_idx" ON "Complaint"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Warning_complaintId_key" ON "Warning"("complaintId");
@@ -408,19 +394,10 @@ CREATE INDEX "Warning_merchantId_idx" ON "Warning"("merchantId");
 CREATE INDEX "Warning_complaintId_idx" ON "Warning"("complaintId");
 
 -- CreateIndex
-CREATE INDEX "Address_userId_idx" ON "Address"("userId");
-
--- CreateIndex
-CREATE INDEX "Device_userId_platform_idx" ON "Device"("userId", "platform");
-
--- CreateIndex
 CREATE INDEX "Notification_userId_createdAt_idx" ON "Notification"("userId", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "AuditLog_actorUserId_createdAt_idx" ON "AuditLog"("actorUserId", "createdAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Employee_username_key" ON "Employee"("username");
+CREATE UNIQUE INDEX "Employee_userId_key" ON "Employee"("userId");
 
 -- CreateIndex
 CREATE INDEX "Employee_merchantId_idx" ON "Employee"("merchantId");
@@ -428,20 +405,23 @@ CREATE INDEX "Employee_merchantId_idx" ON "Employee"("merchantId");
 -- CreateIndex
 CREATE INDEX "Employee_role_status_idx" ON "Employee"("role", "status");
 
+-- CreateIndex
+CREATE INDEX "_MenuItemToOptionGroup_B_index" ON "_MenuItemToOptionGroup"("B");
+
 -- AddForeignKey
-ALTER TABLE "Merchant" ADD CONSTRAINT "Merchant_ownerUserId_fkey" FOREIGN KEY ("ownerUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Merchant" ADD CONSTRAINT "Merchant_ownerUserId_fkey" FOREIGN KEY ("ownerUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Merchant" ADD CONSTRAINT "Merchant_addressId_fkey" FOREIGN KEY ("addressId") REFERENCES "Address"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Merchant" ADD CONSTRAINT "Merchant_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Merchant" ADD CONSTRAINT "Merchant_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "MenuItem" ADD CONSTRAINT "MenuItem_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "OptionGroup" ADD CONSTRAINT "OptionGroup_menuId_fkey" FOREIGN KEY ("menuId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "OptionGroup" ADD CONSTRAINT "OptionGroup_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Option" ADD CONSTRAINT "Option_optionGroupId_fkey" FOREIGN KEY ("optionGroupId") REFERENCES "OptionGroup"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -450,13 +430,13 @@ ALTER TABLE "Option" ADD CONSTRAINT "Option_optionGroupId_fkey" FOREIGN KEY ("op
 ALTER TABLE "Order" ADD CONSTRAINT "Order_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Order" ADD CONSTRAINT "Order_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Order" ADD CONSTRAINT "Order_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "MenuItem"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "OrderItemOption" ADD CONSTRAINT "OrderItemOption_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "OrderItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -466,6 +446,9 @@ ALTER TABLE "OrderItemOption" ADD CONSTRAINT "OrderItemOption_optionId_fkey" FOR
 
 -- AddForeignKey
 ALTER TABLE "Payment" ADD CONSTRAINT "Payment_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Payment" ADD CONSTRAINT "Payment_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Promotion" ADD CONSTRAINT "Promotion_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -483,37 +466,34 @@ ALTER TABLE "InventoryLog" ADD CONSTRAINT "InventoryLog_menuItemId_fkey" FOREIGN
 ALTER TABLE "InventoryLog" ADD CONSTRAINT "InventoryLog_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Review" ADD CONSTRAINT "Review_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Review" ADD CONSTRAINT "Review_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Review" ADD CONSTRAINT "Review_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Complaint" ADD CONSTRAINT "Complaint_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Warning" ADD CONSTRAINT "Warning_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Warning" ADD CONSTRAINT "Warning_complaintId_fkey" FOREIGN KEY ("complaintId") REFERENCES "Complaint"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Address" ADD CONSTRAINT "Address_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Device" ADD CONSTRAINT "Device_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Warning" ADD CONSTRAINT "Warning_complaintId_fkey" FOREIGN KEY ("complaintId") REFERENCES "Complaint"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorUserId_fkey" FOREIGN KEY ("actorUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Employee" ADD CONSTRAINT "Employee_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Employee" ADD CONSTRAINT "Employee_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Employee" ADD CONSTRAINT "Employee_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Favorite" ADD CONSTRAINT "Favorite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Favorite" ADD CONSTRAINT "Favorite_merchantId_fkey" FOREIGN KEY ("merchantId") REFERENCES "Merchant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_MenuItemToOptionGroup" ADD CONSTRAINT "_MenuItemToOptionGroup_A_fkey" FOREIGN KEY ("A") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_MenuItemToOptionGroup" ADD CONSTRAINT "_MenuItemToOptionGroup_B_fkey" FOREIGN KEY ("B") REFERENCES "OptionGroup"("id") ON DELETE CASCADE ON UPDATE CASCADE;
