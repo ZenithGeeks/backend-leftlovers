@@ -220,7 +220,8 @@ export const Customer = new Elysia({ prefix: "/customer" })
                 providerChargeId: "",
                 amount: totalAmount,
                 currency: "THB",
-                status: PaymentStatus.UNPAID,
+                status: PaymentStatus.PAID,
+                paidAt: new Date(now())
               },
             });
 
