@@ -135,7 +135,12 @@ export const MenuCreateSchema = t.Object({
     expireLabelUrl: t.Optional(t.String()),
     groupTemplates: t.Optional(t.Array(GroupCreateSchema))
 })
-export const MenuUpdateSchema = t.Partial(MenuCreateSchema)
+export const MenuUpdateSchema = t.Intersect([
+  t.Partial(MenuCreateSchema),
+  t.Object({
+    groupTemplateIds: t.Optional(t.Array(UUID)) // <— NEW, relation-only field
+  })
+])
 
 /* ============================== Helpers ============================== */
 export const toNumber = (x: Decimal | number | null | undefined) =>
@@ -157,18 +162,26 @@ export const toMenuCreate = (merchantId: string, body: MenuCreateDTO) => ({
 
 /** Normalize partial menu update */
 export const toMenuUpdate = (body: MenuUpdateDTO) => {
-    const out: Record<string, unknown> = {}
-    if (body.name !== undefined) out.name = body.name
-    if (body.description !== undefined) out.description = body.description ?? null
-    if (body.basePrice !== undefined) out.basePrice = body.basePrice
-    if (body.originalPrice !== undefined) out.originalPrice = body.originalPrice ?? null
-    if (body.leftoverQty !== undefined) out.leftoverQty = body.leftoverQty
-    if (body.expiresAt !== undefined) out.expiresAt = body.expiresAt ? new Date(body.expiresAt) : new Date()
-    if (body.status !== undefined) out.status = body.status as MenuItemStatus
-    if (body.photoUrl !== undefined) out.photoUrl = body.photoUrl ?? null
-    if (body.expireLabelUrl !== undefined) out.expireLabelUrl = body.expireLabelUrl ?? ''
-    return out
+  const out: Record<string, unknown> = {}
+  if (body.name !== undefined) out.name = body.name
+  if (body.description !== undefined) out.description = body.description ?? null
+  if (body.basePrice !== undefined) out.basePrice = body.basePrice
+  if (body.originalPrice !== undefined) out.originalPrice = body.originalPrice ?? null
+  if (body.leftoverQty !== undefined) out.leftoverQty = body.leftoverQty
+  if (body.expiresAt !== undefined) {
+    if (body.expiresAt === null) {
+      // choose: either omit to avoid touching DB, or throw 400 in the route
+      // here we omit; route can enforce non-null if needed
+    } else {
+      out.expiresAt = new Date(body.expiresAt)
+    }
+  }
+  if (body.status !== undefined) out.status = body.status as MenuItemStatus
+  if (body.photoUrl !== undefined) out.photoUrl = body.photoUrl ?? null
+  if (body.expireLabelUrl !== undefined) out.expireLabelUrl = body.expireLabelUrl ?? ''
+  return out
 }
+
 
 /** Cast Prisma result → plain numbers for prices */
 export const castMenuItem = (m: any) => ({

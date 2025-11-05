@@ -112,6 +112,7 @@ model User {
   avatarUrl     String?
   status        UserStatus      @default(ACTIVE)
   createdAt     DateTime        @default(now())
+  dob           DateTime
 
   merchants     Merchant[]      @relation("UserMerchants")
   addresses     Address[]
@@ -124,12 +125,14 @@ model User {
   orders        Order[]         @relation("OrderUser")
 
   @@index([role])
+  Favorite Favorite[]
 }
 
 model Merchant {
   id            String          @id @default(uuid())
   ownerUserId   String
   displayName   String
+  branchName    String?
   description   String?
   categoryId    String
   addressId     String
@@ -153,6 +156,7 @@ model Merchant {
   @@index([ownerUserId])
   @@index([status])
   OptionGroup OptionGroup[] @relation(name: "OptionGroupMerchant")
+  Favorite Favorite[]
 }
 
 model Category {
@@ -451,6 +455,16 @@ model Employee {
 
   @@index([merchantId])
   @@index([role, status])
+}
+
+model Favorite {
+    userId      String
+    merchantId  String
+
+    user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+    merchant    Merchant    @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+    @@id([userId, merchantId])
 }
 
 generator erd {
