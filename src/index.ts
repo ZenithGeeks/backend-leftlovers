@@ -5,7 +5,8 @@ import { merchantMenu } from './merchant/menu'
 import { Merchant } from './merchant/index'
 import {Customer} from './customer/index'
 
-import { MerchantFinance } from './merchant/finance'; 
+import { MerchantFinance } from './merchant/finance';
+import { MerchantEmployees } from './merchant/employees';
 
 const prisma = new PrismaClient()
 
@@ -16,6 +17,7 @@ const app = new Elysia({ prefix: '/api' })
     .use(Customer)
 
     .use(MerchantFinance)
+    .use(MerchantEmployees)
 
     .listen(3000)
 
