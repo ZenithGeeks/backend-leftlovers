@@ -57,7 +57,7 @@ async function main() {
   })
 
   // 6️⃣ Create a Menu Item
-  const menuItem = await prisma.menuItem.create({
+  const menuItem_one = await prisma.menuItem.create({
     data: {
       merchantId: merchant.id,
       name: 'Fried Chicken Bento',
@@ -80,7 +80,42 @@ async function main() {
     minSelect: 0,
     maxSelect: 2,
     menu: {
-      connect: { id: menuItem.id }
+      connect: { id: menuItem_one.id }
+    },
+    options: {
+      create: [
+        { name: 'Extra Rice',  priceDelta: 10.0 },
+        { name: 'Extra Sauce', priceDelta: 5.0  }
+      ]
+    }
+  },
+  include: { options: true } // 👈 return related options
+})
+
+const menuItem_two = await prisma.menuItem.create({
+    data: {
+      merchantId: merchant.id,
+      name: 'Joy Rice',
+      description: 'Fried joy with rice',
+      basePrice: 50.0,
+      originalPrice: 100.0,
+      leftoverQty: 10,
+      expiresAt: new Date(Date.now() + 3 * 60 * 60 * 1000), // expires in 3 hours
+      status: MenuItemStatus.LIVE,
+      photoUrl: 'https://picsum.photos/seed/friedchicken/400',
+      expireLabelUrl: 'https://picsum.photos/seed/label/200'
+    }
+  })
+
+  // 7️⃣ Create an OptionGroup + Option
+  const optionGroup_two = await prisma.optionGroup.create({
+  data: {
+    name: 'Add-ons',
+    merchantId: merchant.id,
+    minSelect: 0,
+    maxSelect: 2,
+    menu: {
+      connect: { id: menuItem_two.id }
     },
     options: {
       create: [
@@ -95,9 +130,12 @@ async function main() {
   console.log('✅ Seed completed!\n')
   console.log('customerId:', customer.id)
   console.log('merchantId:', merchant.id)
-  console.log('menuItemId:', menuItem.id)
+  console.log('menuItemId:', menuItem_one.id)
+  console.log('menuItemId:', menuItem_two.id)
   const firstOptionId = optionGroup.options[0]?.id
 console.log('optionId:', firstOptionId)
+  const firstOptionId_two = optionGroup_two.options[0]?.id
+console.log('optionId:', firstOptionId_two)
 
   console.log('\nUse these values in your POST /customer/:merchantId/order test.')
 }

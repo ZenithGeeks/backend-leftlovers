@@ -219,7 +219,8 @@ export const Customer = new Elysia({ prefix: "/customer" })
                 provider: "manual",
                 amount: totalAmount,
                 currency: "THB",
-                status: PaymentStatus.UNPAID,
+                status: PaymentStatus.PAID,
+                paidAt: now(),
               },
             });
 

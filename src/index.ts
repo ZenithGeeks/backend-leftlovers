@@ -4,6 +4,9 @@ import { PrismaClient } from '@prisma/client'
 import { merchantMenu } from './merchant/menu'
 import { Merchant } from './merchant/index'
 import {Customer} from './customer/index'
+
+import { MerchantFinance } from './merchant/finance'; 
+
 const prisma = new PrismaClient()
 
 const app = new Elysia({ prefix: '/api' })
@@ -11,6 +14,9 @@ const app = new Elysia({ prefix: '/api' })
     .use(merchantMenu)
     .use(Merchant)
     .use(Customer)
+
+    .use(MerchantFinance)
+
     .listen(3000)
 
 console.log(
