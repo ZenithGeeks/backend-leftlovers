@@ -99,7 +99,6 @@ model User {
   id            String          @id @default(uuid())
   role          Role
   name          String
-  username      String          @unique
   email         String          @unique
   phone         String?
   dob           DateTime

@@ -48,58 +48,68 @@ function validateOptionsOrThrow(
   menuMap: Map<string, MenuWithGroups>
 ) {
   for (const it of items) {
-    const menu = menuMap.get(it.menuItemId);
-    if (!menu) throw new OrderError(400, `Menu ${it.menuItemId} not found`);
+    const menu = menuMap.get(it.menuItemId)
+    if (!menu) throw new OrderError(400, `Menu ${it.menuItemId} not found`)
 
-    const chosen = new Set(it.optionIds ?? []);
-    const allIds = new Set(
-      menu.optionGroups.flatMap((g) => g.options.map((o) => o.id))
-    );
+    const chosen = new Set(it.optionIds ?? [])
 
+    // Only consider ACTIVE options for both existence and group rules
+    const activeOptionIds = new Set(
+      menu.optionGroups.flatMap(g => g.options.filter(o => o.active).map(o => o.id))
+    )
+
+    // 1) Every chosen option must be an active option of this menu
     for (const oid of chosen) {
-      if (!allIds.has(oid))
-        throw new OrderError(400, `Invalid option ${oid} for "${menu.name}"`);
+      if (!activeOptionIds.has(oid))
+        throw new OrderError(400, `Invalid or inactive option ${oid} for "${menu.name}"`)
     }
 
+    // 2) Group min/max over ACTIVE options only
     for (const g of menu.optionGroups) {
-      const inGroup = (it.optionIds ?? []).filter((oid) =>
-        g.options.some((o) => o.id === oid)
-      );
-      if (inGroup.length < g.minSelect || inGroup.length > g.maxSelect) {
+      const activeIdsInGroup = new Set(g.options.filter(o => o.active).map(o => o.id))
+      const pickedInGroup = (it.optionIds ?? []).filter(oid => activeIdsInGroup.has(oid))
+      if (pickedInGroup.length < g.minSelect || pickedInGroup.length > g.maxSelect) {
         throw new OrderError(
           400,
           `OptionGroup "${g.name}" requires between ${g.minSelect} and ${g.maxSelect}`
-        );
+        )
       }
     }
   }
 }
 
+
 function buildPriceBreakdown(
   items: Array<{ menuItemId: string; quantity: number; optionIds?: string[] }>,
   menuMap: Map<string, MenuWithGroups>
 ): PriceLine[] {
-  return items.map((it) => {
-    const menu = menuMap.get(it.menuItemId)!;
-    const base = D(menu.basePrice);
-    const chosen = new Set(it.optionIds ?? []);
+  return items.map(it => {
+    const menu = menuMap.get(it.menuItemId)!
+    const base = D(menu.basePrice)
+
+    const chosen = new Set(it.optionIds ?? [])
+
+    // Only active options contribute to price
     const optionSum = sum(
       menu.optionGroups
-        .flatMap((g) => g.options)
-        .filter((o) => chosen.has(o.id))
-        .map((o) => D(o.priceDelta))
-    );
-    const unit = base.plus(optionSum);
-    const line = unit.mul(it.quantity);
+        .flatMap(g => g.options.filter(o => o.active))
+        .filter(o => chosen.has(o.id))
+        .map(o => D(o.priceDelta))
+    )
+
+    const unit = base.plus(optionSum)       // per-unit price (base + chosen options)
+    const line = unit.mul(it.quantity)      // extended line total
+
     return {
       menuId: it.menuItemId,
       qty: it.quantity,
       unit,
       line,
-      optionIds: [...chosen],
-    };
-  });
+      optionIds: [...chosen]
+    }
+  })
 }
+
 
 /* ================================= Route ================================= */
 export const Customer = new Elysia({ prefix: "/customer" })
