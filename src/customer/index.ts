@@ -217,6 +217,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
                 orderId: order.id,
                 merchantId,
                 provider: "manual",
+                providerChargeId: "",
                 amount: totalAmount,
                 currency: "THB",
                 status: PaymentStatus.UNPAID,
@@ -226,10 +227,10 @@ export const Customer = new Elysia({ prefix: "/customer" })
             return tx.order.findUnique({
               where: { id: order.id },
               include: {
-                items: {
+                orderItems: {
                   include: {
-                    menu: true,
-                    options: { include: { option: true } },
+                    menuItem: true,
+                    orderItemOptions: { include: { option: true } },
                   },
                 },
                 payment: true,
@@ -288,9 +289,9 @@ export const Customer = new Elysia({ prefix: "/customer" })
       const order = await prisma.order.findFirst({
         where: { id: params.orderId, merchantId: params.merchantId },
         include: {
-          items: {
+          orderItems: {
             include: {
-              menu: {
+              menuItem: {
                 select: {
                   id: true,
                   name: true,
