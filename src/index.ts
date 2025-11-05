@@ -12,7 +12,6 @@ const app = new Elysia({ prefix: '/api' })
     .use(Merchant)
     .use(Customer)
     .listen(3000)
-
 console.log(
     `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
 )
