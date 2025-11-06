@@ -11,6 +11,7 @@ import {
   castMenuItem,
   toMenuCreate,
   toMenuUpdate
+
 } from '../../../types'
 
 const prisma = new PrismaClient()
@@ -36,7 +37,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
   .get('/:merchantId/menu/:menuId', async ({ params, set }) => {
     const item = await prisma.menuItem.findFirst({
       where: { id: params.menuId, merchantId: params.merchantId },
-      include: { optionGroups: { include: { options: true } } }
+      include: { optionGroups: true }
     })
 
     if (!item) {
@@ -54,22 +55,22 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
         ...data,
         optionGroups: body.groupTemplates
           ? {
-              create: body.groupTemplates.map((g: any) => ({
-                name: g.name,
-                merchantId: params.merchantId,
-                minSelect: g.minSelect ?? 0,
-                maxSelect: g.maxSelect ?? 1,
-                options: g.options
-                  ? {
-                      create: g.options.map((o: any) => ({
-                        name: o.name,
-                        priceDelta: o.priceDelta,
-                        active: o.active ?? true
-                      }))
-                    }
-                  : undefined
-              }))
-            }
+            create: body.groupTemplates.map((g: any) => ({
+              name: g.name,
+              merchantId: params.merchantId,
+              minSelect: g.minSelect ?? 0,
+              maxSelect: g.maxSelect ?? 1,
+              options: g.options
+                ? {
+                  create: g.options.map((o: any) => ({
+                    name: o.name,
+                    priceDelta: o.priceDelta,
+                    active: o.active ?? true
+                  }))
+                }
+                : undefined
+            }))
+          }
           : undefined
       },
       include: { optionGroups: { include: { options: true } } }
@@ -80,17 +81,42 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
   }, { body: MenuCreateSchema, tags: ['Menu'] })
 
   .put('/:merchantId/menu/:menuId', async ({ params, body, set }) => {
-    const exists = await prisma.menuItem.findFirst({
+    const item = await prisma.menuItem.findFirst({
       where: { id: params.menuId, merchantId: params.merchantId }
     })
-    if (!exists) {
+    if (!item) {
       set.status = 404
       return { message: 'Menu not found' }
     }
 
+    if ('expiresAt' in body && body.expiresAt === null) {
+      set.status = 400
+      return { message: 'expiresAt cannot be null' }
+    }
+
+    const scalar = toMenuUpdate(body)
+
+    let groups
+    if (Array.isArray(body.groupTemplateIds)) {
+      const ids = [...new Set(body.groupTemplateIds)]
+      if (ids.length === 0) {
+        groups = { set: [] }
+      } else {
+        const valid = await prisma.optionGroup.findMany({
+          where: { id: { in: ids }, merchantId: params.merchantId },
+          select: { id: true }
+        })
+        if (valid.length !== ids.length) {
+          set.status = 400
+          return { message: 'One or more option groups are invalid for this merchant' }
+        }
+        groups = { set: valid.map(g => ({ id: g.id })) }
+      }
+    }
+
     const updated = await prisma.menuItem.update({
       where: { id: params.menuId },
-      data: toMenuUpdate(body),
+      data: { ...scalar, ...(groups ? { optionGroups: groups } : {}) },
       include: { optionGroups: { include: { options: true } } }
     })
 
@@ -150,12 +176,12 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
         maxSelect: body.maxSelect ?? 1,
         options: body.options
           ? {
-              create: body.options.map((o: any) => ({
-                name: o.name,
-                priceDelta: o.priceDelta,
-                active: o.active ?? true
-              }))
-            }
+            create: body.options.map((o: any) => ({
+              name: o.name,
+              priceDelta: o.priceDelta,
+              active: o.active ?? true
+            }))
+          }
           : undefined
       },
       include: { options: true }
