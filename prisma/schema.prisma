@@ -1,15 +1,11 @@
-
 generator client {
   provider = "prisma-client-js"
 }
 
-
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")  // pooled (6543) for your running app
+  url       = env("DATABASE_URL")
 }
-
-// ============================ Enums ============================
 
 enum Role {
   ADMIN
@@ -99,10 +95,6 @@ enum EmployeeStatus {
   DISABLED
 }
 
-
-
-// ============================ Models ============================
-
 model User {
   id            String          @id @default(uuid())
   role          Role
@@ -115,7 +107,6 @@ model User {
   dob           DateTime
 
   merchants     Merchant[]      @relation("UserMerchants")
-  addresses     Address[]
   devices       Device[]
   notifications Notification[]
   reviews       Review[]
@@ -142,11 +133,9 @@ model Merchant {
   listImageUrl  String?
   StoreImageUrl String?
 
-
-
-  owner         User            @relation(fields: [ownerUserId], references: [id], name: "UserMerchants", onDelete: Cascade) //Cascade?
+  owner         User            @relation(fields: [ownerUserId], references: [id], name: "UserMerchants", onDelete: Restrict)
   address       Address         @relation(fields: [addressId], references: [id], name: "MerchantAddress", onDelete: Cascade)
-  category      Category        @relation(fields: [categoryId], references: [id], name: "MerchantCategory", onDelete: Cascade) //Cascade?
+  category      Category        @relation(fields: [categoryId], references: [id], name: "MerchantCategory", onDelete: Restrict)
   menu          MenuItem[]      @relation("MenuMerchant")
   orders        Order[]         @relation("OrderMerchant")
   promotions    Promotion[]
@@ -182,7 +171,7 @@ model MenuItem {
   photoUrl       String?
   expireLabelUrl String
 
-  merchant       Merchant        @relation(fields: [merchantId],name: "MenuMerchant",  references: [id], onDelete: Cascade)
+  merchant       Merchant        @relation(fields: [merchantId],name: "MenuMerchant",  references: [id], onDelete: Restrict)
   optionGroups   OptionGroup[]   @relation("OptionGroupMenu")
   items          OrderItem[]     @relation("OrderItemMenu")
   inventoryLogs  InventoryLog[]
@@ -197,26 +186,24 @@ model OptionGroup {
   minSelect   Int        @default(0)
   maxSelect   Int        @default(1)
 
-  merchant    Merchant        @relation(fields: [merchantId],name: "OptionGroupMerchant",  references: [id], onDelete: Cascade)
+  merchant    Merchant        @relation(fields: [merchantId],name: "OptionGroupMerchant",  references: [id], onDelete: Restrict)
   menu        MenuItem[]   @relation("OptionGroupMenu")
   options     Option[]   @relation("OptionToGroup")
 }
 
-model Option { //Multiple?
+model Option {
   id             String      @id @default(uuid())
   optionGroupId  String
   name           String
   priceDelta     Decimal     @db.Decimal(10,2)
   active         Boolean     @default(true)
 
-  optionGroup    OptionGroup @relation(fields: [optionGroupId], references: [id], name: "OptionToGroup", onDelete: Cascade) //Cascade?
+  optionGroup    OptionGroup @relation(fields: [optionGroupId], references: [id], name: "OptionToGroup", onDelete: Cascade)
   orderChoices   OrderItemOption[]
 
   @@unique([optionGroupId, name])
   @@index([optionGroupId])
 }
-
-// ============================ Orders/Payments/etc ============================
 
 model Order {
   id             String                @id @default(uuid())
@@ -233,8 +220,8 @@ model Order {
   preference     OrderPreference       @default(CONTACT)
   note           String?
 
-  customer       User                  @relation(fields: [customerId], references: [id], name: "OrderUser", onDelete: Cascade) //Cascade?
-  merchant       Merchant              @relation(fields: [merchantId], references: [id], name: "OrderMerchant", onDelete: Cascade) //Cascade?
+  customer       User                  @relation(fields: [customerId], references: [id], name: "OrderUser", onDelete: Cascade)
+  merchant       Merchant              @relation(fields: [merchantId], references: [id], name: "OrderMerchant", onDelete: Restrict)
   items          OrderItem[]           @relation("OrderItemOrder")
   payment        Payment?
   promoUsages    PromotionUsage[]
@@ -252,8 +239,8 @@ model OrderItem {
   menuItemId  String
   quantity    Int
 
-  order       Order     @relation(fields: [orderId], references: [id], name: "OrderItemOrder", onDelete: Cascade) //Cascade?
-  menu        MenuItem  @relation(fields: [menuItemId], references: [id], name: "OrderItemMenu", onDelete: Cascade) //Cascade?
+  order       Order     @relation(fields: [orderId], references: [id], name: "OrderItemOrder", onDelete: Cascade)
+  menu        MenuItem  @relation(fields: [menuItemId], references: [id], name: "OrderItemMenu", onDelete: Restrict)
   options     OrderItemOption[]
 
   @@index([orderId])
@@ -299,7 +286,7 @@ model Promotion {
   endAt        DateTime?
   active       Boolean       @default(false)
 
-  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   usages       PromotionUsage[]
 
   @@unique([merchantId, name])
@@ -313,7 +300,7 @@ model PromotionUsage {
   discountAmount  Decimal   @db.Decimal(10,2)
 
   promotion       Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
-  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Restrict)
 
   @@index([promotionId])
 }
@@ -342,7 +329,7 @@ model Review {
   tags        String?
   createdAt   DateTime @default(now())
 
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
   customer    User     @relation(fields: [customerId], references: [id])
 
   @@index([customerId])
@@ -357,7 +344,7 @@ model Complaint {
   status      ComplaintStatus @default(OPEN)
   createdAt   DateTime        @default(now())
 
-  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
   customer    User            @relation(fields: [customerId], references: [id])
   warning     Warning?
 
@@ -381,7 +368,6 @@ model Warning {
 
 model Address {
   id         String   @id @default(uuid())
-  userId     String
   label      String?
   line1      String
   line2      String?
@@ -391,10 +377,7 @@ model Address {
   lat        Decimal? @db.Decimal(10,7)
   lng        Decimal? @db.Decimal(10,7)
 
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   merchants   Merchant[] @relation("MerchantAddress")
-
-  @@index([userId])
 }
 
 model Device {
