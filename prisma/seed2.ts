@@ -3,7 +3,7 @@ import { PrismaClient, MenuItemStatus, Role, MerchantStatus, PaymentStatus } fro
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Seeding data...')
+  console.log('Seeding data...')
   const customer = await prisma.user.create({
     data: {
       role: Role.CUSTOMER,

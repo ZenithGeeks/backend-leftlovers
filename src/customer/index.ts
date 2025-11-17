@@ -5,6 +5,8 @@ import {
   MenuItemStatus,
   PaymentStatus,
   OrderPreference,
+  Role,
+  UserStatus,
 } from "@prisma/client";
 
 import {
@@ -14,6 +16,8 @@ import {
   SuccessCreatedOrderSchema,
   type MenuWithGroups,
   type PriceLine,
+  UserCreateSchema,
+  SuccessCreatedUserSchema,
 } from "../../types";
 
 const prisma = new PrismaClient();
@@ -108,6 +112,20 @@ function buildPriceBreakdown(
       optionIds: [...chosen]
     }
   })
+}
+
+export function parseDOB(input?: string | Date | null): Date | null {
+  if (!input) return null;
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) throw new Error("Invalid date of birth");
+  const now = new Date();
+  const min = new Date(now.getFullYear() - 15, now.getMonth(), now.getDate());
+  if (d > min) throw new Error("You must be at least 15 years old");
+  return d;
+}
+
+function normEmail(e: string) {
+  return e.trim().toLowerCase();
 }
 
 
@@ -333,4 +351,73 @@ export const Customer = new Elysia({ prefix: "/customer" })
       return order;
     },
     { tags: ["Order"] }
-  );
+  )
+.post(
+  '/',
+  async ({ body, set }) => {
+    try {
+      const name = body.name?.trim()
+      const email = normEmail(body.email)
+      const phone = body.phone?.trim() || null
+      const avatarUrl = body.avatarUrl ?? null
+      const dobDate = parseDOB(body.dob ?? null);
+      const role = (body.role as Role) ?? Role.CUSTOMER
+      const status = (body.status as UserStatus) ?? UserStatus.ACTIVE
+      const user = await prisma.user.create({
+        data: {
+          ...(name ? { name } : {}),
+          email,
+          phone,
+          avatarUrl,
+          dob: dobDate, 
+          role,
+          status,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          dob: true,
+          avatarUrl: true,
+          role: true,
+          status: true,
+          createdAt: true,
+        },
+      })
+
+      set.status = 201
+      return {
+        message: 'User created',
+        user: {
+          ...user,
+          dob: user.dob ? user.dob.toISOString() : null,
+          createdAt: user.createdAt.toISOString(),
+        }
+      }
+    } catch (err: any) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2002') {
+          set.status = 409
+          return { message: 'Duplicate email' }
+        }
+      }
+      console.error('[User Create Error]', err)
+      set.status = 500
+      return { message: err }
+    }
+  },
+  {
+    body: UserCreateSchema,
+    response: {
+      201: SuccessCreatedUserSchema,
+      400: ErrorSchema,
+      409: ErrorSchema,
+      500: ErrorSchema,
+    },
+    detail: {
+      tags: ['Users'],
+      summary: 'Create a new user',
+    },
+  }
+)
