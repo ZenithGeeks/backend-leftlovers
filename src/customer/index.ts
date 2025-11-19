@@ -114,8 +114,10 @@ function buildPriceBreakdown(
   })
 }
 
-export function parseDOB(input?: string | Date | null): Date | null {
-  if (!input) return null;
+export function parseDOB(input?: string | Date): Date{
+  if (!input) {
+    throw new Error("Date of birth is required");
+  };
   const d = input instanceof Date ? input : new Date(input);
   if (Number.isNaN(d.getTime())) throw new Error("Invalid date of birth");
   const now = new Date();
@@ -356,16 +358,23 @@ export const Customer = new Elysia({ prefix: "/customer" })
   '/',
   async ({ body, set }) => {
     try {
-      const name = body.name?.trim()
+      const rawName = body.name
+      if (!rawName || typeof rawName !== 'string' || !rawName.trim()) {
+        set.status = 400
+        return { message: 'Name is required' }
+      }
+      const name = rawName.trim()
       const email = normEmail(body.email)
       const phone = body.phone?.trim() || null
       const avatarUrl = body.avatarUrl ?? null
-      const dobDate = parseDOB(body.dob ?? null);
+      const dobDate = parseDOB(body.dob)
       const role = (body.role as Role) ?? Role.CUSTOMER
       const status = (body.status as UserStatus) ?? UserStatus.ACTIVE
+
+      
       const user = await prisma.user.create({
         data: {
-          ...(name ? { name } : {}),
+          name,
           email,
           phone,
           avatarUrl,
@@ -391,7 +400,6 @@ export const Customer = new Elysia({ prefix: "/customer" })
         message: 'User created',
         user: {
           ...user,
-          dob: user.dob ? user.dob.toISOString() : null,
           createdAt: user.createdAt.toISOString(),
         }
       }

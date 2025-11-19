@@ -1,5 +1,5 @@
 import { Elysia, HTTPHeaders, StatusMap, t } from 'elysia'
-import { PrismaClient, MenuItemStatus, Role, UserStatus, MerchantStatus, Prisma, FileKind } from '@prisma/client'
+import { PrismaClient, MenuItemStatus, Role, UserStatus, MerchantStatus, Prisma,} from '@prisma/client'
 import { ErrorSchema } from '../../types';
 import { ElysiaCookie } from 'elysia/cookies';
 
@@ -22,7 +22,7 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
     '/user',
     async ({ body, set }) => {
       try {
-        const name = body.name?.trim() || null
+        const name = body.name?.trim()
         const email = normEmail(body.email)
         const phone = body.phone?.trim() || null
         const avatarUrl = body.avatarUrl ?? null
@@ -30,7 +30,7 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
         // Create user as MERCHANT
         const user = await prisma.user.create({
           data: {
-            ...(name ? { name } : {}),
+            name,
             email,
             phone,
             avatarUrl,
@@ -71,7 +71,7 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
     },
     {
       body: t.Object({
-        name: t.Optional(t.String()),
+        name: t.String(),
         email: t.String({ format: 'email' }),
         phone: t.Optional(t.String({ minLength: 8 })),
         avatarUrl: t.Optional(t.String()),
@@ -81,7 +81,6 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
           message: t.Literal('Merchant user created'),
           user: t.Object({
             id: t.String(),
-            userId: t.String(),
             name: t.Union([t.String(), t.Null()]),
             email: t.String(),
             phone: t.Union([t.String(), t.Null()]),

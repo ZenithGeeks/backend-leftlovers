@@ -7,7 +7,6 @@ import {
     OrderPreference,
     Prisma
 } from '@prisma/client'
-import type { Static } from '@sinclair/typebox';
 
 /* ========================= Re-exports (Enums) ========================= */
 export { MenuItemStatus, PaymentStatus, OrderPreference }
@@ -226,7 +225,7 @@ export const SuccessCreatedUserSchema = t.Object({
     name: t.Union([t.String(), t.Null()]), 
     email: t.String(),
     phone: t.Union([t.String(), t.Null()]),
-    dob: t.Union([t.String(), t.Null()]),   // <- was t.String(); now nullable
+    dob: t.Union([t.String(), t.Null()]),
     avatarUrl: t.Union([t.String(), t.Null()]),
     role: t.String(),
     status: t.String(),

@@ -26,7 +26,7 @@ async function main() {
   /* -------------------------- 3. Address -------------------------- */
   const address = await prisma.address.create({
     data: {
-      userId: user.id,
+      id: user.id,
       label: 'Storefront',
       line1: '123 Sukhumvit Road',
       city: 'Bangkok',

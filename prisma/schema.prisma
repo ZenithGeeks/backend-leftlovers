@@ -95,20 +95,10 @@ enum EmployeeStatus {
   DISABLED
 }
 
-enum FileKind {
-  COMMERCIAL_REG   // commercial registration PDF (exactly 1)
-  OWNER_ID         // owner national ID PDF (exactly 1)
-  STORE_IMAGE      // up to 5 store images
-  OTHER
-} 
-
-
-// ============================ Models ============================
-
 model User {
   id            String          @id @default(uuid())
   role          Role
-  name          String?
+  name          String
   email         String          @unique
   phone         String?
   avatarUrl     String?
@@ -127,7 +117,6 @@ model User {
 
   @@index([role])
   Favorite Favorite[]
-  files File[]
 }
 
 model Merchant {
@@ -146,8 +135,7 @@ model Merchant {
 
   owner         User            @relation(fields: [ownerUserId], references: [id], name: "UserMerchants", onDelete: Restrict)
   address       Address         @relation(fields: [addressId], references: [id], name: "MerchantAddress", onDelete: Cascade)
-  category      Category        @relation(fields: [categoryId], references: [id], name: "MerchantCategory", onDelete: Cascade) //Cascade?
-  files         File[]          @relation("MerchantFiles")
+  category      Category        @relation(fields: [categoryId], references: [id], name: "MerchantCategory", onDelete: Restrict)
   menu          MenuItem[]      @relation("MenuMerchant")
   orders        Order[]         @relation("OrderMerchant")
   promotions    Promotion[]
@@ -162,7 +150,7 @@ model Merchant {
 
 model Category {
   id         String      @id @default(uuid())
-  name       String      
+  name       String
 
   merchants  Merchant[]  @relation("MerchantCategory")
   
@@ -462,20 +450,7 @@ model Favorite {
     @@id([userId, merchantId])
 }
 
-model File {
-  id           String    @id @default(uuid())
-  ownerUserId  String?
-  merchantId   String?
-  url          String
-  name         String?
-  mimeType     String?
-  size         Int?
-  kind         FileKind  @default(OTHER)
-  createdAt    DateTime  @default(now())
-
-  merchant     Merchant? @relation("MerchantFiles", fields: [merchantId], references: [id], onDelete: Cascade)
-  owner        User?     @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
-
-  @@index([merchantId])
-  @@index([kind, merchantId])
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "./ERD.svg"
 }
