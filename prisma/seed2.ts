@@ -53,6 +53,39 @@ async function main() {
     const ongCategory = await prisma.category.create({
         data: { name: 'Cooked to order' }
     })
+  // 3️⃣ Create a Category
+  const newCategories = [
+    "Thai Food",
+    "Japanese",
+    "Chinese",
+    "Korean",
+    "Vietnamese",
+    "Cafe",
+    "Bakery",
+    "Vegetarian",
+    "Vegan",
+    "Halal",
+    "Seafood",
+    "Fast Food",
+    "Dessert",
+    "Street Food",
+    "Italian",
+  ];
+
+  const categoryMap: Record<string, string> = {};
+
+  for (const name of newCategories) {
+    const category = await prisma.category.upsert({
+      where: { name },       // check if category exists
+      update: {},            // do nothing if it exists
+      create: { name },      // create if it doesn't exist
+    });
+    categoryMap[name] = category.id;
+    console.log(`Category ready: ${name} (ID: ${category.id})`);
+  }
+
+  console.log("All categories processed:", categoryMap);
+
 
     // 4️⃣ Create an Address for merchant
     const address = await prisma.address.create({

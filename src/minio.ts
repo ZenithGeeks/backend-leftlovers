@@ -3,7 +3,7 @@ import { Client } from 'minio'
 import { randomUUID } from 'crypto'
 
 const minioClient = new Client({
-  endPoint: "de634c31dd2a.ngrok-free.app",
+  endPoint: "e69f37b2067c.ngrok-free.app",
   port: 443,
   useSSL: true,
   pathStyle: true,
@@ -39,7 +39,7 @@ export const uploadRoutes = new Elysia({ prefix: '/minio' })
             'Content-Type': file.type
         })
 
-        const fileURL = `https://de634c31dd2a.ngrok-free.app/${BUCKET}/${fileName}`
+        const fileURL = `https://e69f37b2067c.ngrok-free.app/${BUCKET}/${fileName}`
 
         return { url: fileURL }
     },
