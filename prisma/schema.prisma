@@ -240,6 +240,7 @@ model Order {
   paymentStatus  PaymentStatus         @default(UNPAID)
   pickupCode     String?               @unique
   pickupDeadline DateTime?
+  cutlery        Boolean               @default(false)
   createdAt      DateTime              @default(now())
   preference     OrderPreference       @default(CONTACT)
   note           String?

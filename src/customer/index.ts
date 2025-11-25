@@ -52,31 +52,43 @@ function validateOptionsOrThrow(
   menuMap: Map<string, MenuWithGroups>
 ) {
   for (const it of items) {
-    const menu = menuMap.get(it.menuItemId)
-    if (!menu) throw new OrderError(400, `Menu ${it.menuItemId} not found`)
+    const menu = menuMap.get(it.menuItemId);
+    if (!menu) throw new OrderError(400, `Menu ${it.menuItemId} not found`);
 
-    const chosen = new Set(it.optionIds ?? [])
+    const chosen = new Set(it.optionIds ?? []);
 
     // Only consider ACTIVE options for both existence and group rules
     const activeOptionIds = new Set(
-      menu.optionGroups.flatMap(g => g.options.filter(o => o.active).map(o => o.id))
-    )
+      menu.optionGroups.flatMap((g) =>
+        g.options.filter((o) => o.active).map((o) => o.id)
+      )
+    );
 
     // 1) Every chosen option must be an active option of this menu
     for (const oid of chosen) {
       if (!activeOptionIds.has(oid))
-        throw new OrderError(400, `Invalid or inactive option ${oid} for "${menu.name}"`)
+        throw new OrderError(
+          400,
+          `Invalid or inactive option ${oid} for "${menu.name}"`
+        );
     }
 
     // 2) Group min/max over ACTIVE options only
     for (const g of menu.optionGroups) {
-      const activeIdsInGroup = new Set(g.options.filter(o => o.active).map(o => o.id))
-      const pickedInGroup = (it.optionIds ?? []).filter(oid => activeIdsInGroup.has(oid))
-      if (pickedInGroup.length < g.minSelect || pickedInGroup.length > g.maxSelect) {
+      const activeIdsInGroup = new Set(
+        g.options.filter((o) => o.active).map((o) => o.id)
+      );
+      const pickedInGroup = (it.optionIds ?? []).filter((oid) =>
+        activeIdsInGroup.has(oid)
+      );
+      if (
+        pickedInGroup.length < g.minSelect ||
+        pickedInGroup.length > g.maxSelect
+      ) {
         throw new OrderError(
           400,
           `OptionGroup "${g.name}" requires between ${g.minSelect} and ${g.maxSelect}`
-        )
+        );
       }
     }
   }
@@ -86,31 +98,31 @@ function buildPriceBreakdown(
   items: Array<{ menuItemId: string; quantity: number; optionIds?: string[] }>,
   menuMap: Map<string, MenuWithGroups>
 ): PriceLine[] {
-  return items.map(it => {
-    const menu = menuMap.get(it.menuItemId)!
-    const base = D(menu.basePrice)
+  return items.map((it) => {
+    const menu = menuMap.get(it.menuItemId)!;
+    const base = D(menu.basePrice);
 
-    const chosen = new Set(it.optionIds ?? [])
+    const chosen = new Set(it.optionIds ?? []);
 
     // Only active options contribute to price
     const optionSum = sum(
       menu.optionGroups
-        .flatMap(g => g.options.filter(o => o.active))
-        .filter(o => chosen.has(o.id))
-        .map(o => D(o.priceDelta))
-    )
+        .flatMap((g) => g.options.filter((o) => o.active))
+        .filter((o) => chosen.has(o.id))
+        .map((o) => D(o.priceDelta))
+    );
 
-    const unit = base.plus(optionSum)       // per-unit price (base + chosen options)
-    const line = unit.mul(it.quantity)      // extended line total
+    const unit = base.plus(optionSum); // per-unit price (base + chosen options)
+    const line = unit.mul(it.quantity); // extended line total
 
     return {
       menuId: it.menuItemId,
       qty: it.quantity,
       unit,
       line,
-      optionIds: [...chosen]
-    }
-  })
+      optionIds: [...chosen],
+    };
+  });
 }
 
 export function parseDOB(input?: string | Date): Date{
@@ -137,7 +149,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
     async ({ params, body, set }) => {
       try {
         const { merchantId } = params as { merchantId: string };
-        const { customerId, items, preference, note } = body as {
+        const { customerId, items, preference, cutlery, note } = body as {
           customerId: string;
           items: Array<{
             menuItemId: string;
@@ -145,6 +157,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
             optionIds?: string[];
           }>;
           preference?: OrderPreference;
+          cutlery?: boolean; // ✅ Added
           note?: string;
         };
 
@@ -174,6 +187,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
         const subtotal = sum(lines.map((l) => l.line));
         const discountTotal = D(0);
         const totalAmount = subtotal;
+
         const result = await prisma.$transaction(
           async (tx: Prisma.TransactionClient) => {
             const order = await tx.order.create({
@@ -188,6 +202,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
                 pickupCode: genPickupCode(),
                 pickupDeadline,
                 preference: preference ?? OrderPreference.CONTACT,
+                cutlery: cutlery ?? false, // ✅ Added here
                 note,
               },
             });
@@ -250,7 +265,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
                 amount: totalAmount,
                 currency: "THB",
                 status: PaymentStatus.PAID,
-                paidAt: new Date(now())
+                paidAt: new Date(now()),
               },
             });
 
@@ -320,7 +335,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
         include: {
           items: {
             include: {
-              options: true
+              options: true,
             },
           },
           merchant: {
