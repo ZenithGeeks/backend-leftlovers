@@ -30,12 +30,6 @@ const app = new Elysia({ prefix: '/api' })
   .use(Merchant)
   .use(Customer)
   .use(uploadRoutes)
+  .listen(process.env.PORT ?? 3000) 
 
-// --------------------
-// SERVER START (NORMAL HOSTING)
-// --------------------
-const port = Number(process.env.PORT) || 3000
-
-app.listen(port)
-
-console.log(`🦊 Elysia running on http://localhost:${port}`)
+console.log(`🦊 Elysia running on http://localhost:3000`)
