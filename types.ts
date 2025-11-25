@@ -196,3 +196,40 @@ export const castMenuItem = (m: any) => ({
         }))
     }))
 })
+
+// -- Create (User) --
+export const UserCreateSchema = t.Object({
+  name: t.Optional(t.String({ minLength: 0 })),   // name is optional now
+  email: t.String({ format: "email" }),
+  phone: t.Optional(t.String({ minLength: 8 })),     // optional to match model
+  dob: t.Optional(t.Union([t.String(), t.Date()])),  // <- made Optional
+  avatarUrl: t.Optional(t.String()),
+  role: t.Optional(t.Union([
+    t.Literal("CUSTOMER"),
+    t.Literal("MERCHANT"),
+    t.Literal("ADMIN"),
+    t.Literal("STAFF"),
+  ])),
+  status: t.Optional(t.Union([
+    t.Literal("ACTIVE"),
+    t.Literal("SUSPENDED"),
+    t.Literal("DELETED"),
+  ])),
+})
+
+// -- Success (User) --
+export const SuccessCreatedUserSchema = t.Object({
+  message: t.Literal('User created'),
+  user: t.Object({
+    id: t.String(),
+    name: t.Union([t.String(), t.Null()]), 
+    email: t.String(),
+    phone: t.Union([t.String(), t.Null()]),
+    dob: t.Union([t.String(), t.Null()]),
+    avatarUrl: t.Union([t.String(), t.Null()]),
+    role: t.String(),
+    status: t.String(),
+    createdAt: t.String(),
+  })
+})
+

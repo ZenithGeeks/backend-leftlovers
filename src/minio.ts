@@ -3,12 +3,13 @@ import { Client } from 'minio'
 import { randomUUID } from 'crypto'
 
 const minioClient = new Client({
-    endPoint: '192.168.1.155',
-    port: 9000,
-    useSSL: false,
-    accessKey: process.env.MINIO_ACCESS_KEY,
-    secretKey: process.env.MINIO_SECRET_KEY
-})
+  endPoint: "de634c31dd2a.ngrok-free.app",
+  port: 443,
+  useSSL: true,
+  pathStyle: true,
+  accessKey: process.env.MINIO_ACCESS_KEY,
+  secretKey: process.env.MINIO_SECRET_KEY,
+});
 const BUCKET = 'objects'
 
 await (async () => {
@@ -38,13 +39,16 @@ export const uploadRoutes = new Elysia({ prefix: '/minio' })
             'Content-Type': file.type
         })
 
-        const fileURL = `http://192.168.1.155:9000/${BUCKET}/${fileName}`
+        const fileURL = `https://de634c31dd2a.ngrok-free.app/${BUCKET}/${fileName}`
 
         return { url: fileURL }
     },
-    {
-        body: t.Object({
-            file: t.File()
-        })
-    }
-)
+        {
+            type: 'multipart/form-data',
+            body: t.Object({
+                file: t.File({
+                    description: 'File to upload to MinIO',
+                }),
+            }),
+        }
+    )
