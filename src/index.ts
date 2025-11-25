@@ -25,5 +25,4 @@ const app = new Elysia({ prefix: '/api' })
   .use(Customer)
   .use(uploadRoutes)
 
-// ✅ Export Elysia app as default for Vercel
 export default app
