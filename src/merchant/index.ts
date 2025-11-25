@@ -29,16 +29,21 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
   }, { tags: ['Merchant'] })
   
   .get('/categories', async ({ params, set }) => {
+  try {
     const categories = await prisma.category.findMany({
       orderBy: { name: 'desc' }
     })
-    if (!categories.length) {
-      set.status = 404
-      return { message: 'No menu found' }
-    }
+
+    // always return an array
     return categories
-  }, { tags: ['Merchant'] })
-  
+  } catch (err) {
+    console.error('Failed to fetch categories:', err)
+    set.status = 500
+    return { message: 'Internal server error' }
+  }
+}, { tags: ['Merchant'] })
+
+
   .post(
   '/user',
   async ({ body, set }) => {
