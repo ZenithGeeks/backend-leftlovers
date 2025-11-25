@@ -42,9 +42,12 @@ export const uploadRoutes = new Elysia({ prefix: '/minio' })
 
         return { url: fileURL }
     },
-    {
-        body: t.Object({
-            file: t.File()
-        })
-    }
-)
+        {
+            type: 'multipart/form-data',
+            body: t.Object({
+                file: t.File({
+                    description: 'File to upload to MinIO',
+                }),
+            }),
+        }
+    )
