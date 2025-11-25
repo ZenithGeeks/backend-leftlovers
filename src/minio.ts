@@ -39,7 +39,7 @@ export const uploadRoutes = new Elysia({ prefix: '/minio' })
             'Content-Type': file.type
         })
 
-        const fileURL = `http://localhost:9000/${BUCKET}/${fileName}`
+        const fileURL = `https://de634c31dd2a.ngrok-free.app/${BUCKET}/${fileName}`
 
         return { url: fileURL }
     },
