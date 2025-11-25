@@ -82,7 +82,6 @@ function validateOptionsOrThrow(
   }
 }
 
-
 function buildPriceBreakdown(
   items: Array<{ menuItemId: string; quantity: number; optionIds?: string[] }>,
   menuMap: Map<string, MenuWithGroups>
