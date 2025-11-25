@@ -26,9 +26,38 @@ async function main() {
   })
 
   // 3️⃣ Create a Category
-  const category = await prisma.category.create({
-    data: { name: 'Thai Food' }
-  })
+  const newCategories = [
+    "Thai Food",
+    "Japanese",
+    "Chinese",
+    "Korean",
+    "Vietnamese",
+    "Cafe",
+    "Bakery",
+    "Vegetarian",
+    "Vegan",
+    "Halal",
+    "Seafood",
+    "Fast Food",
+    "Dessert",
+    "Street Food",
+    "Italian",
+  ];
+
+  const categoryMap: Record<string, string> = {};
+
+  for (const name of newCategories) {
+    const category = await prisma.category.upsert({
+      where: { name },       // check if category exists
+      update: {},            // do nothing if it exists
+      create: { name },      // create if it doesn't exist
+    });
+    categoryMap[name] = category.id;
+    console.log(`Category ready: ${name} (ID: ${category.id})`);
+  }
+
+  console.log("All categories processed:", categoryMap);
+
 
   // 4️⃣ Create an Address for merchant
   const address = await prisma.address.create({
@@ -50,7 +79,7 @@ async function main() {
       ownerUserId: owner.id,
       displayName: 'Bob’s Bento Shop',
       description: 'Delicious Bento Boxes and Thai-style rice dishes',
-      categoryId: category.id,
+      categoryId: categoryMap["Thai Food"],
       addressId: address.id,
       status: MerchantStatus.APPROVED,
       listImageUrl: 'https://picsum.photos/400?bento',
