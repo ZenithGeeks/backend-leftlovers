@@ -4,13 +4,9 @@ FROM oven/bun:1 AS base
 WORKDIR /app
 
 # Install deps
-COPY bun.lockb package.json ./
+COPY package.json ./
 RUN bun install --production
-
-# Copy the rest
 COPY . .
-
-# Generate Prisma client
 RUN bunx prisma generate
 
 ENV NODE_ENV=production
