@@ -33,7 +33,7 @@ async function main() {
   // 4️⃣ Create an Address for merchant
   const address = await prisma.address.create({
     data: {
-      userId: owner.id,
+      id: owner.id,
       label: 'Storefront',
       line1: '123 Sukhumvit Rd',
       city: 'Bangkok',

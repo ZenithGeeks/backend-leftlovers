@@ -473,8 +473,3 @@ model Favorite {
 
     @@id([userId, merchantId])
 }
-
-generator erd {
-  provider = "prisma-erd-generator"
-  output   = "./ERD.svg"
-}
