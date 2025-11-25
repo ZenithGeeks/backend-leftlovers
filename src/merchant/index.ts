@@ -17,6 +17,27 @@ function normEmail(e: string) {
 }
 
 export const Merchant = new Elysia({ prefix: '/merchant' })
+  .get('/merchant', async ({ params, set }) => {
+    const merchants = await prisma.merchant.findMany({
+      orderBy: { createdAt: 'desc' }
+    })
+    if (!merchants.length) {
+      set.status = 404
+      return { message: 'No menu found' }
+    }
+    return merchants
+  }, { tags: ['Merchant'] })
+  
+  .get('/categories', async ({ params, set }) => {
+    const categories = await prisma.category.findMany({
+      orderBy: { name: 'desc' }
+    })
+    if (!categories.length) {
+      set.status = 404
+      return { message: 'No menu found' }
+    }
+    return categories
+  }, { tags: ['Merchant'] })
   
   .post(
   '/user',
@@ -324,7 +345,7 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
       500: t.Object({ message: t.String() }),
     },
     detail: {
-      tags: ["Merchants"],
+      tags: ["Merchant"],
       summary: "Complete merchant store information (address, merchant, files)",
     },
   }

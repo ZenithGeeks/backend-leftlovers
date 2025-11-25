@@ -49,6 +49,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
 
   .post('/:merchantId/menu', async ({ params, body, set }) => {
     const data = toMenuCreate(params.merchantId, body)
+
     const created = await prisma.menuItem.create({
       data: {
         ...data,
@@ -164,7 +165,7 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     })
     if (!merchant) {
       set.status = 404
-      return { message: 'Merchant not found'}
+      return { message: 'Merchant not found' }
     }
 
     const created = await prisma.optionGroup.create({
