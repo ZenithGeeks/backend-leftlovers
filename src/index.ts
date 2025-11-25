@@ -20,7 +20,6 @@ if (!globalForPrisma.prisma) {
 
 const app = new Elysia({ prefix: '/api' })
   .use(openapi())
-  .use(swagger())
   .use(merchantMenu)
   .use(Merchant)
   .use(Customer)

@@ -4,7 +4,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "postinstall": "bunx prisma generate"
   },
   "dependencies": {
     "@elysiajs/openapi": "^1.4.11",
