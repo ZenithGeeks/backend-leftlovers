@@ -3,12 +3,13 @@ import { Client } from 'minio'
 import { randomUUID } from 'crypto'
 
 const minioClient = new Client({
-    endPoint: 'localhost',
-    port: 9000,
-    useSSL: false,
-    accessKey: process.env.MINIO_ACCESS_KEY,
-    secretKey: process.env.MINIO_SECRET_KEY
-})
+  endPoint: "de634c31dd2a.ngrok-free.app",
+  port: 443,
+  useSSL: true,
+  pathStyle: true,
+  accessKey: process.env.MINIO_ACCESS_KEY,
+  secretKey: process.env.MINIO_SECRET_KEY,
+});
 const BUCKET = 'objects'
 
 await (async () => {
