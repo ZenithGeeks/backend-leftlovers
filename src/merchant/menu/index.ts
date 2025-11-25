@@ -37,7 +37,13 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
   .get('/:merchantId/menu/:menuId', async ({ params, set }) => {
     const item = await prisma.menuItem.findFirst({
       where: { id: params.menuId, merchantId: params.merchantId },
-      include: { optionGroups: true }
+      include: {
+          optionGroups: {
+            include: {
+              options: true,
+            },
+          },
+        },
     })
 
     if (!item) {

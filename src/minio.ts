@@ -3,7 +3,7 @@ import { Client } from 'minio'
 import { randomUUID } from 'crypto'
 
 const minioClient = new Client({
-    endPoint: 'localhost',
+    endPoint: '192.168.1.155',
     port: 9000,
     useSSL: false,
     accessKey: process.env.MINIO_ACCESS_KEY,
@@ -38,7 +38,7 @@ export const uploadRoutes = new Elysia({ prefix: '/minio' })
             'Content-Type': file.type
         })
 
-        const fileURL = `http://localhost:9000/${BUCKET}/${fileName}`
+        const fileURL = `http://192.168.1.155:9000/${BUCKET}/${fileName}`
 
         return { url: fileURL }
     },
