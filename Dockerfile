@@ -15,5 +15,4 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-# 6. รัน server Bun + Elysia
 CMD ["bun", "run", "src/index.ts"]
