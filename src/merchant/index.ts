@@ -162,10 +162,10 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
           set.status = 400;
           return { message: "exactly one COMMERCIAL_REG required" };
         }
-        if ((counts.OWNER_ID ?? 0) !== 1) {
-          set.status = 400;
-          return { message: "exactly one OWNER_ID required" };
-        }
+        // if ((counts.OWNER_ID ?? 0) !== 1) {
+        //   set.status = 400;
+        //   return { message: "exactly one OWNER_ID required" };
+        // }
         if ((counts.STORE_IMAGE ?? 0) > 5) {
           set.status = 400;
           return { message: "up to 5 STORE_IMAGE allowed" };
