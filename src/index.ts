@@ -7,15 +7,24 @@ import { Customer } from './customer/index'
 import { swagger } from '@elysiajs/swagger'
 import { uploadRoutes } from './minio'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+  })
+
+if (!globalForPrisma.prisma) {
+  globalForPrisma.prisma = prisma
+}
+
 const app = new Elysia({ prefix: '/api' })
-    .use(openapi())
-    .use(swagger())
-    .use(merchantMenu)
-    .use(Merchant)
-    .use(Customer)
-    .use(uploadRoutes)
-    .listen(3000)
-console.log(
-    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-)
+  .use(openapi())
+  .use(swagger())
+  .use(merchantMenu)
+  .use(Merchant)
+  .use(Customer)
+  .use(uploadRoutes)
+
+// ✅ Export Elysia app as default for Vercel
+export default app
