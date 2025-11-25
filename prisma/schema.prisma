@@ -95,6 +95,13 @@ enum EmployeeStatus {
   DISABLED
 }
 
+enum FileKind {
+  COMMERCIAL_REG   // commercial registration PDF (exactly 1)
+  OWNER_ID         // owner national ID PDF (exactly 1)
+  STORE_IMAGE      // up to 5 store images
+  OTHER
+} 
+
 model User {
   id            String          @id @default(uuid())
   role          Role
@@ -141,12 +148,29 @@ model Merchant {
   promotions    Promotion[]
   warnings      Warning[]
   employees     Employee[]
+  
 
   @@index([ownerUserId])
   @@index([status])
   OptionGroup OptionGroup[] @relation(name: "OptionGroupMerchant")
   Favorite Favorite[]
+  merchantFiles MerchantFile[] @relation(name: "MerchantFiles")
 }
+
+model MerchantFile {
+  id         String    @id @default(uuid())
+  merchantId String
+  kind       FileKind
+  url        String
+  label      String? 
+  createdAt  DateTime  @default(now())
+
+  merchant   Merchant  @relation(fields: [merchantId], references: [id], name: "MerchantFiles", onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([kind])
+}
+
 
 model Category {
   id         String      @id @default(uuid())
