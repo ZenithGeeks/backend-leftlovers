@@ -1,0 +1,31 @@
+name: CI - backend-leftlovers (Bun + Docker)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.x
+
+      - name: Install dependencies (no postinstall scripts)
+        run: bun install --ignore-scripts
+
+      - name: Generate Prisma Client
+        run: bunx prisma generate --schema prisma/schema.prisma
+
+      - name: Run tests (Vitest)
+        run: bunx vitest run
+
+      - name: Build Docker image (verify Dockerfile)
+        run: docker build -t backend-leftlovers-ci .
