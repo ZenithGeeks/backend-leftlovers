@@ -348,7 +348,7 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
     }
     return categories
   }, { tags: ['Merchant'] })
-    .get('/merchant/:merchantId', async ({ params, set }) => {
+    .get('/:merchantId', async ({ params, set }) => {
       const item = await prisma.merchant.findFirst({
         where: { id: params.merchantId },
       })
