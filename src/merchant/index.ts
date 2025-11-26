@@ -17,7 +17,6 @@ function normEmail(e: string) {
 }
 
 export const Merchant = new Elysia({ prefix: '/merchant' })
-
   .post(
     '/user',
     async ({ body, set }) => {
@@ -349,3 +348,14 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
     }
     return categories
   }, { tags: ['Merchant'] })
+    .get('/merchant/:merchantId', async ({ params, set }) => {
+      const item = await prisma.merchant.findFirst({
+        where: { id: params.merchantId },
+      })
+  
+      if (!item) {
+        set.status = 404
+        return { message: 'Merchant not found' }
+      }
+      return item
+    }, { tags: ['Merchant'] })
