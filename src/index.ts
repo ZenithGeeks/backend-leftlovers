@@ -32,5 +32,4 @@ const app = new Elysia({ prefix: '/api' })
   .use(uploadRoutes)
   .use(merchantOrder)
   .listen(process.env.PORT ?? 3000) 
-
 console.log(`🦊 Elysia running on http://localhost:3000`)
