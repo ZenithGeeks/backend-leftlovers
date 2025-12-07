@@ -3,36 +3,41 @@
 ARG BUN_VERSION=1.3.4
 
 # -----------------------------
-# Builder (runs prisma generate)
+# 1) deps with Bun
 # -----------------------------
-FROM oven/bun:${BUN_VERSION} AS builder
+FROM oven/bun:${BUN_VERSION} AS deps
 WORKDIR /app
 
-# Avoid Prisma auto-generate during install (optional, but ok to keep)
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 
-# Copy only deps first for better caching
 COPY package.json bun.lockb* bun.lock* ./
 COPY prisma ./prisma
 
-# Workaround for Bun integrity/cache issues
+# helps with occasional bun integrity issues
 RUN rm -rf /root/.bun/install/cache
 
-# IMPORTANT: do NOT use --ignore-scripts
+# IMPORTANT: don't use --ignore-scripts
 RUN bun install --frozen-lockfile
 
-# Copy the rest of the app
+# -----------------------------
+# 2) prisma generate with Node
+# -----------------------------
+FROM node:20-bookworm-slim AS prisma
+WORKDIR /app
+
+# bring bun-installed deps
+COPY --from=deps /app/node_modules /app/node_modules
+COPY --from=deps /app/package.json /app/package.json
+COPY --from=deps /app/bun.lockb* /app/
+
+# bring source + prisma schema
 COPY . .
+COPY prisma ./prisma
 
-# Install Node just for Prisma CLI in this build stage
-RUN apt-get install -y nodejs npm \
-  && rm -rf /var/lib/apt/lists/*
-
-# Use Node-based Prisma generate for reliability in Docker
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # -----------------------------
-# Runner (small runtime image)
+# 3) runtime with Bun
 # -----------------------------
 FROM oven/bun:${BUN_VERSION} AS runner
 WORKDIR /app
@@ -40,8 +45,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy the built app + node_modules from builder
-COPY --from=builder /app /app
+COPY --from=prisma /app /app
 
 EXPOSE 3000
 CMD ["bun", "run", "src/index.ts"]
