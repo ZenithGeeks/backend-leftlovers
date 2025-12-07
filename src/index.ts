@@ -6,7 +6,7 @@ import { Merchant } from './merchant'
 import { Customer } from './customer'
 import { swagger } from '@elysiajs/swagger'
 import { uploadRoutes } from './minio'
-
+import { merchantOrder } from './merchant/order'
 // --------------------
 // SAFE PRISMA CLIENT (Bun + Server)
 // --------------------
@@ -30,6 +30,7 @@ const app = new Elysia({ prefix: '/api' })
   .use(Merchant)
   .use(Customer)
   .use(uploadRoutes)
+  .use(merchantOrder)
   .listen(process.env.PORT ?? 3000) 
 
 console.log(`🦊 Elysia running on http://localhost:3000`)
