@@ -1,11 +1,11 @@
 FROM oven/bun:1
 WORKDIR /app
 
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 COPY . .
-RUN bunx prisma generate --schema=./prisma/schema.prisma
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
 ENV NODE_ENV=production
 ENV PORT=3000
