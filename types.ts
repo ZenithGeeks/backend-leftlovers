@@ -233,3 +233,12 @@ export const SuccessCreatedUserSchema = t.Object({
   })
 })
 
+export const OrderStatusUpdateSchema = t.Object({
+  status: t.Union([
+    t.Literal('PENDING'),
+    t.Literal('CONFIRMED'),
+    t.Literal('READY'),
+    t.Literal('PICKED_UP'),
+    t.Literal('CANCELLED'),
+  ])
+})
