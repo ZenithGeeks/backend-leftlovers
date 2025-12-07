@@ -1,21 +1,19 @@
-FROM oven/bun:1
-
+FROM oven/bun:1.3.4
 WORKDIR /app
 
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 
-COPY package.json bun.lockb ./
-# If your prisma folder is needed early for caching:
+COPY package.json bun.lock ./
 COPY prisma ./prisma
 
+RUN rm -rf /root/.bun/install/cache
 RUN bun install --frozen-lockfile --ignore-scripts
 
 COPY . .
 
-RUN bunx --bun prisma generate --schema=./prisma/schema.prisma
+RUN bunx prisma generate --schema=./prisma/schema.prisma
 
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
-
 CMD ["bun", "run", "src/index.ts"]
