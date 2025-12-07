@@ -2,12 +2,18 @@ FROM oven/bun:1
 
 WORKDIR /app
 
-# If you have bun.lock, copy it; if not, skip that line
+# Skip postinstall Prisma generate during bun install
+ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+
 COPY package.json bun.lock ./
+COPY prisma ./prisma
+
 RUN bun install
 
 COPY . .
-RUN bunx prisma generate --schema=./prisma/schema.prisma
+
+# Explicit generate after full source is present
+RUN bunx --bun prisma generate --schema=./prisma/schema.prisma
 
 ENV NODE_ENV=production
 ENV PORT=3000

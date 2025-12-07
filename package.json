@@ -7,7 +7,7 @@
     "start": "bun run src/index.ts",
     "test": "bunx vitest run",
     "test:watch": "bunx vitest",
-    "postinstall": "bunx prisma generate"
+    "postinstall": "node -e \"process.env.PRISMA_SKIP_POSTINSTALL_GENERATE ? process.exit(0) : process.exit(1)\" || bunx prisma generate"
   },
   "dependencies": {
     "@elysiajs/openapi": "^1.4.11",
