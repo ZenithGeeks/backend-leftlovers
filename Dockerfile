@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 
-COPY package.json bun.lock ./
+COPY package.json bun.lockb ./
 # If your prisma folder is needed early for caching:
 COPY prisma ./prisma
 
