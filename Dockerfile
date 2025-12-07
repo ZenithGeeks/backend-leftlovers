@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 
-COPY package.json bun.lock ./
+COPY package.json bun.lockb ./
 COPY prisma ./prisma
 
 RUN rm -rf /root/.bun/install/cache
