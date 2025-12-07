@@ -25,8 +25,7 @@ RUN bun install --frozen-lockfile
 COPY . .
 
 # Install Node just for Prisma CLI in this build stage
-RUN apt-get update \
-  && apt-get install -y nodejs npm \
+RUN apt-get install -y nodejs npm \
   && rm -rf /var/lib/apt/lists/*
 
 # Use Node-based Prisma generate for reliability in Docker
