@@ -2,7 +2,6 @@ import { Elysia, t } from 'elysia'
 import { Client } from 'minio'
 import { randomUUID } from 'crypto'
 
-console.log(process.env.MINIO_ACCESS_KEY)
 
 const minioClient = new Client({
   endPoint: "minio.leftlovers.dpdns.org",
@@ -14,6 +13,7 @@ const minioClient = new Client({
 });
 
 const BUCKET = 'objects'
+
 await (async () => {
     const exists = await minioClient.bucketExists(BUCKET).catch(() => false)
 
