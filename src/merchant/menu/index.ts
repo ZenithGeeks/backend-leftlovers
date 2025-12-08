@@ -1,5 +1,5 @@
 // src/routes/merchant.menu.ts
-import { Elysia } from 'elysia'
+import { Elysia, Static } from 'elysia'
 import { PrismaClient } from '@prisma/client'
 import {
   MenuCreateSchema,
@@ -15,9 +15,8 @@ import {
 } from '../../../types'
 
 const prisma = new PrismaClient()
-
+type MenuUpdateBody = Static<typeof MenuUpdateSchema>;
 export const merchantMenu = new Elysia({ prefix: '/merchant' })
-
   /* ===================== MENU ===================== */
 
   .get('/:merchantId/menu', async ({ params, set }) => {
@@ -85,48 +84,77 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     return castMenuItem(created)
   }, { body: MenuCreateSchema, tags: ['Menu'] })
 
-  .put('/:merchantId/menu/:menuId', async ({ params, body, set }) => {
+  .put(
+  "/:merchantId/menu/:menuId",
+  async ({ params, body, set }) => {
+    const { merchantId, menuId } = params;
+    const updateBody = body as MenuUpdateBody;
+
+    // 1) Ensure menu exists for this merchant
     const item = await prisma.menuItem.findFirst({
-      where: { id: params.menuId, merchantId: params.merchantId }
-    })
+      where: { id: menuId, merchantId },
+      select: { id: true },
+    });
+
     if (!item) {
-      set.status = 404
-      return { message: 'Menu not found' }
+      set.status = 404;
+      return { message: "Menu not found" };
     }
 
-    if ('expiresAt' in body && body.expiresAt === null) {
-      set.status = 400
-      return { message: 'expiresAt cannot be null' }
+    // 2) Validate expiresAt rule (if you want to forbid clearing)
+    if ("expiresAt" in updateBody && updateBody.expiresAt === null) {
+      set.status = 400;
+      return { message: "expiresAt cannot be null" };
     }
 
-    const scalar = toMenuUpdate(body)
+    // 3) Map scalar fields safely
+    const scalar = toMenuUpdate(updateBody);
 
-    let groups
-    if (Array.isArray(body.groupTemplateIds)) {
-      const ids = [...new Set(body.groupTemplateIds)]
+    // 4) Resolve option group relation by ids (if provided)
+    let optionGroups:
+      | {
+          set: { id: string }[];
+        }
+      | undefined;
+
+    const groupIds = updateBody.groupTemplateIds;
+
+    if (Array.isArray(groupIds)) {
+      const ids = [...new Set(groupIds)];
+
       if (ids.length === 0) {
-        groups = { set: [] }
+        optionGroups = { set: [] };
       } else {
         const valid = await prisma.optionGroup.findMany({
-          where: { id: { in: ids }, merchantId: params.merchantId },
-          select: { id: true }
-        })
+          where: { id: { in: ids }, merchantId },
+          select: { id: true },
+        });
+
         if (valid.length !== ids.length) {
-          set.status = 400
-          return { message: 'One or more option groups are invalid for this merchant' }
+          set.status = 400;
+          return {
+            message: "One or more option groups are invalid for this merchant",
+          };
         }
-        groups = { set: valid.map(g => ({ id: g.id })) }
+
+        optionGroups = { set: valid.map((g) => ({ id: g.id })) };
       }
     }
 
+    // 5) Update
     const updated = await prisma.menuItem.update({
-      where: { id: params.menuId },
-      data: { ...scalar, ...(groups ? { optionGroups: groups } : {}) },
-      include: { optionGroups: { include: { options: true } } }
-    })
+      where: { id: menuId },
+      data: {
+        ...scalar,
+        ...(optionGroups ? { optionGroups } : {}),
+      },
+      include: { optionGroups: { include: { options: true } } },
+    });
 
-    return castMenuItem(updated)
-  }, { body: MenuUpdateSchema, tags: ['Menu'] })
+    return castMenuItem(updated);
+  },
+  { body: MenuUpdateSchema, tags: ["Menu"] },
+)
 
   .delete('/:merchantId/menu/:menuId', async ({ params, set }) => {
     const exists = await prisma.menuItem.findFirst({

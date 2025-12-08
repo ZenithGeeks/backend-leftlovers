@@ -213,6 +213,7 @@ async function main() {
     console.log('menuItemId:', menuItem.id)
     const firstOptionId = optionGroup.options[0]?.id
     console.log('optionId:', firstOptionId)
+    
 
     console.log('\nUse these values in your POST /customer/:merchantId/order test.')
 }
