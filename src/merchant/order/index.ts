@@ -13,7 +13,11 @@ export const merchantOrder = new Elysia({ prefix: '/merchant' })
       where: { merchantId: params.merchantId },
       include: {
         items: {
-          include: { options: true, menu: true  },
+          include: { 
+            options: {
+              include: { option: true}
+            },
+            menu: true  },
         },
         customer: true,
       },
