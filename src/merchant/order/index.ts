@@ -7,17 +7,13 @@ import {
 } from '../../../types'
 
 const prisma = new PrismaClient()
-
 export const merchantOrder = new Elysia({ prefix: '/merchant' })
-
-  /* ===================== MENU ===================== */
-
    .get('/:merchantId/order', async ({ params, set }) => {
     const orders = await prisma.order.findMany({
       where: { merchantId: params.merchantId },
       include: {
         items: {
-          include: { options: true },
+          include: { options: true, menu: true  },
         },
         customer: true,
       },
