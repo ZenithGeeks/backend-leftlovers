@@ -224,7 +224,7 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
    * PATCH /api/merchant/:merchantId/employees/:employeeId
    * Update profile, role, or status (ACTIVE/DISABLED)
    */
-  .patch(
+  .put(
     '/:merchantId/employees/:employeeId',
     async ({ params, body, set }) => {
       const emp = await prisma.employee.findFirst({
