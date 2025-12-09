@@ -1,4 +1,4 @@
-//src/merchant/employee/index.ts
+// src/merchant/employee/index.ts
 import { Elysia, t } from 'elysia';
 import { PrismaClient, EmployeeStatus, EmployeeRole } from '@prisma/client';
 
@@ -30,19 +30,27 @@ function splitName(name: string | null | undefined): { first: string; last: stri
 
 function toRoleDisplay(role: EmployeeRole): EmployeeDTO['role'] {
   switch (role) {
-    case 'OWNER': return 'Owner';
-    case 'MANAGER': return 'Manager';
-    case 'CASHIER': return 'Cashier';
-    default: return 'Stock';
+    case 'OWNER':
+      return 'Owner';
+    case 'MANAGER':
+      return 'Manager';
+    case 'CASHIER':
+      return 'Cashier';
+    default:
+      return 'Stock';
   }
 }
 
 function fromRoleDisplay(role: EmployeeDTO['role']): EmployeeRole {
   switch (role) {
-    case 'Owner': return 'OWNER';
-    case 'Manager': return 'MANAGER';
-    case 'Cashier': return 'CASHIER';
-    default: return 'STOCK';
+    case 'Owner':
+      return 'OWNER';
+    case 'Manager':
+      return 'MANAGER';
+    case 'Cashier':
+      return 'CASHIER';
+    default:
+      return 'STOCK';
   }
 }
 
@@ -78,11 +86,7 @@ const createBody = t.Object({
   username: t.Optional(t.String()),
   email: t.Optional(t.String()),
   phone: t.Optional(t.String()),
-  role: t.Union([
-    t.Literal('Manager'),
-    t.Literal('Cashier'),
-    t.Literal('Stock'),
-  ]),
+  role: t.Union([t.Literal('Manager'), t.Literal('Cashier'), t.Literal('Stock')]),
 });
 
 const updateBody = t.Partial(
@@ -91,11 +95,7 @@ const updateBody = t.Partial(
     username: t.String(),
     email: t.String(),
     phone: t.String(),
-    role: t.Union([
-      t.Literal('Manager'),
-      t.Literal('Cashier'),
-      t.Literal('Stock'),
-    ]),
+    role: t.Union([t.Literal('Manager'), t.Literal('Cashier'), t.Literal('Stock')]),
     status: t.Union([t.Literal('ACTIVE'), t.Literal('DISABLED')]),
   })
 );
@@ -111,7 +111,6 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
   .get(
     '/:merchantId/employees',
     async ({ params, set }) => {
-      // Load merchant + owner
       const merchant = await prisma.merchant.findUnique({
         where: { id: params.merchantId },
         include: {
@@ -132,14 +131,13 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
         id: merchant.owner?.id ?? '',
         firstName: first,
         lastName: last,
-        // You can surface owner contacts if you want:
         email: merchant.owner?.email ?? null,
         phone: merchant.owner?.phone ?? null,
         username: null,
         role: 'Owner',
       };
 
-      // Employees (not including owner)
+      // Employees (non-owner)
       const emps = await prisma.employee.findMany({
         where: { merchantId: params.merchantId },
         orderBy: { createdAt: 'desc' },
@@ -157,11 +155,12 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
   /**
    * POST /api/merchant/:merchantId/employees
    * Create employee row (ACTIVE by default)
+   * Also links to existing User via email -> userId if email matches.
    */
   .post(
     '/:merchantId/employees',
     async ({ params, body, set }) => {
-      // Ensure merchant exists
+      // 1) Ensure merchant exists
       const m = await prisma.merchant.findUnique({
         where: { id: params.merchantId },
         select: { id: true },
@@ -171,7 +170,7 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
         return { message: 'Merchant not found' };
       }
 
-      // Optional: enforce unique username at app-level (DB already has unique)
+      // 2) Unique username guard
       if (body.username) {
         const exists = await prisma.employee.findUnique({
           where: { username: body.username },
@@ -183,30 +182,41 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
         }
       }
 
-      // Optional: link to existing User by email if provided
-      let linkUserId: string | undefined = undefined;
-      if (body.email) {
-        const user = await prisma.user.findUnique({
-          where: { email: body.email },
-          select: { id: true },
-        });
-        if (user) linkUserId = user.id;
-      }
+      // 3) Normalize fields
       const fullName = body.fullName.trim();
       if (!fullName) {
         set.status = 400;
         return { message: 'fullName cannot be empty or just whitespace.' };
       }
+
+      const username = body.username?.trim() || undefined;
+      const rawEmail = body.email?.trim() || undefined;
+      const normalizedEmail = rawEmail ? rawEmail.toLowerCase() : undefined;
+      const phone = body.phone?.trim() || undefined;
+
+      // 4) Link to existing User by normalized email (if any)
+      let linkUserId: string | undefined = undefined;
+      if (normalizedEmail) {
+        const existingUser = await prisma.user.findUnique({
+          where: { email: normalizedEmail },
+          select: { id: true },
+        });
+        if (existingUser) {
+          linkUserId = existingUser.id;
+        }
+      }
+
+      // 5) Create employee
       const created = await prisma.employee.create({
         data: {
           merchantId: params.merchantId,
           userId: linkUserId,
-          fullName: fullName,
-          username: body.username?.trim(),
-          email: body.email?.trim(),
-          mobileNumber: body.phone?.trim(),
+          fullName,
+          username,
+          email: normalizedEmail,
+          mobileNumber: phone,
           role: fromRoleDisplay(body.role),
-          status: 'ACTIVE',
+          status: EmployeeStatus.ACTIVE,
         },
       });
 
@@ -221,8 +231,9 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
   )
 
   /**
-   * PATCH /api/merchant/:merchantId/employees/:employeeId
+   * PUT /api/merchant/:merchantId/employees/:employeeId
    * Update profile, role, or status (ACTIVE/DISABLED)
+   * Also re-links userId if email is changed.
    */
   .put(
     '/:merchantId/employees/:employeeId',
@@ -235,12 +246,7 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
         return { message: 'Employee not found' };
       }
 
-      // If status flips to DISABLED set disabledAt, if ACTIVE clear it
-      let disabledAt: Date | null | undefined = undefined;
-      if (body.status === 'DISABLED') disabledAt = new Date();
-      if (body.status === 'ACTIVE') disabledAt = null;
-
-      // Unique username guard when changing username
+      // Username unique guard when changing username
       if (body.username && body.username !== emp.username) {
         const exists = await prisma.employee.findUnique({
           where: { username: body.username },
@@ -252,16 +258,44 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
         }
       }
 
+      // Handle status ↔ disabledAt
+      let disabledAt: Date | null | undefined = undefined;
+      if (body.status === 'DISABLED') disabledAt = new Date();
+      if (body.status === 'ACTIVE') disabledAt = null;
+
+      // Normalize and maybe re-link email
+      let emailUpdate: string | undefined;
+      let userIdUpdate: string | null | undefined;
+
+      if (typeof body.email !== 'undefined') {
+        const rawEmail = body.email?.trim() || '';
+        const normalizedEmail = rawEmail ? rawEmail.toLowerCase() : '';
+
+        if (!normalizedEmail) {
+          // Email cleared
+          emailUpdate = '';
+          userIdUpdate = null;
+        } else {
+          emailUpdate = normalizedEmail;
+          const existingUser = await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+            select: { id: true },
+          });
+          userIdUpdate = existingUser ? existingUser.id : null;
+        }
+      }
+
       const updated = await prisma.employee.update({
         where: { id: emp.id },
         data: {
           fullName: body.fullName?.trim(),
           username: body.username?.trim(),
-          email: body.email?.trim(),
+          email: typeof body.email !== 'undefined' ? emailUpdate : undefined,
           mobileNumber: body.phone?.trim(),
           role: body.role ? fromRoleDisplay(body.role) : undefined,
           status: body.status as EmployeeStatus | undefined,
           disabledAt,
+          ...(typeof userIdUpdate !== 'undefined' ? { userId: userIdUpdate } : {}),
         },
       });
 
@@ -289,7 +323,7 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
       }
       const updated = await prisma.employee.update({
         where: { id: emp.id },
-        data: { status: 'DISABLED', disabledAt: new Date() },
+        data: { status: EmployeeStatus.DISABLED, disabledAt: new Date() },
       });
       return toEmployeeDTO(updated);
     },
@@ -314,7 +348,7 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
       }
       const updated = await prisma.employee.update({
         where: { id: emp.id },
-        data: { status: 'ACTIVE', disabledAt: null },
+        data: { status: EmployeeStatus.ACTIVE, disabledAt: null },
       });
       return toEmployeeDTO(updated);
     },
@@ -326,7 +360,6 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
 
   /**
    * DELETE /api/merchant/:merchantId/employees/:employeeId
-   * Hard-delete the employee row.
    */
   .delete(
     '/:merchantId/employees/:employeeId',
