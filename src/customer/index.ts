@@ -144,53 +144,6 @@ function normEmail(e: string) {
 
 /* ================================= Route ================================= */
 export const Customer = new Elysia({ prefix: "/customer" })
-.get(
-    "/:customerId/orders",
-    async ({ params }) => {
-      const { customerId } = params;
-
-      const orders = await prisma.order.findMany({
-        where: { customerId },
-        orderBy: { createdAt: "desc" },
-        include: {
-          merchant: {
-            select: {
-              id: true,
-              displayName: true,
-              branchName: true,
-            },
-          },
-          items: {
-            include: {
-              menu: {
-                select: {
-                  id: true,
-                  name: true,
-                  photoUrl: true,
-                  basePrice: true,
-                },
-              },
-              options: {
-                include: {
-                  option: {
-                    select: {
-                      id: true,
-                      name: true,
-                      priceDelta: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-          payment: true,
-        },
-      });
-
-      return orders;
-    },
-    { tags: ["Customer", "Order"] }
-  )
   .post(
     "/:merchantId/order",
     async ({ params, body, set }) => {
