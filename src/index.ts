@@ -11,7 +11,6 @@ import { merchantOrder } from './merchant/order'
 import { MerchantFinance } from './merchant/finance';
 import { MerchantEmployees } from './merchant/employee';
 import { MerchantEditStore } from './merchant/editstore';
-import { MerchantCuisine } from "./merchant/cuisine";
 
 // --------------------
 // SAFE PRISMA CLIENT (Bun + Server)
@@ -41,7 +40,6 @@ const app = new Elysia({ prefix: '/api' })
   .use(MerchantFinance)
   .use(MerchantEmployees)
   .use(MerchantEditStore)
-  .use(MerchantCuisine)
   
   .listen(process.env.PORT ?? 3000) 
 console.log(`🦊 Elysia running on http://localhost:3000`)
