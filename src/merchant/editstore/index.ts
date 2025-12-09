@@ -68,9 +68,9 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
   )
 
   /* ===========================================================
-     PATCH /merchant/:merchantId/editstore
+     PUT /merchant/:merchantId/editstore
      =========================================================== */
-  .patch(
+  .put(
     '/:merchantId/editstore',
     async ({ params, body, set }) => {
       const merchant = await prisma.merchant.findUnique({
