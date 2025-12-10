@@ -1,5 +1,5 @@
 // src/routes/merchant.menu.ts
-import { Elysia, Static } from 'elysia'
+import { Elysia, Static, t } from "elysia";
 import { PrismaClient } from '@prisma/client'
 import {
   MenuCreateSchema,
@@ -10,7 +10,9 @@ import {
   OptionUpdateSchema,
   castMenuItem,
   toMenuCreate,
-  toMenuUpdate
+  toMenuUpdate,
+  MenuPublishStatusSchema,
+  MenuPublishStatusBody
 
 } from '../../../types'
 
@@ -154,6 +156,32 @@ export const merchantMenu = new Elysia({ prefix: '/merchant' })
     return castMenuItem(updated);
   },
   { body: MenuUpdateSchema, tags: ["Menu"] },
+)
+.put(
+  "/:merchantId/menu/:menuId/status",
+  async ({ params, body, set }) => {
+    const { merchantId, menuId } = params;
+    const { status } = body as MenuPublishStatusBody;
+
+    const item = await prisma.menuItem.findFirst({
+      where: { id: menuId, merchantId },
+      select: { id: true },
+    });
+
+    if (!item) {
+      set.status = 404;
+      return { message: "Menu not found" };
+    }
+
+    const updated = await prisma.menuItem.update({
+      where: { id: item.id },
+      data: { status },
+      include: { optionGroups: { include: { options: true } } },
+    });
+
+    return castMenuItem(updated);
+  },
+  { body: MenuPublishStatusSchema, tags: ["Menu"], detail: ['Change menu status'] }
 )
 
   .delete('/:merchantId/menu/:menuId', async ({ params, set }) => {

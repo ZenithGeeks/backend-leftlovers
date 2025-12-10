@@ -1,5 +1,5 @@
 // src/types.ts
-import { t } from 'elysia'
+import { Static, t } from 'elysia'
 import type { Decimal } from '@prisma/client/runtime/library'
 import {
     MenuItemStatus,
@@ -144,6 +144,11 @@ export const MenuUpdateSchema = t.Intersect([
   })
 ]);
 
+export const MenuPublishStatusSchema = t.Object({
+  status: t.Union([t.Literal("DRAFT"), t.Literal("LIVE")]),
+});
+
+export type MenuPublishStatusBody = Static<typeof MenuPublishStatusSchema>;
 /* ============================== Helpers ============================== */
 export const toNumber = (x: Decimal | number | null | undefined) =>
     x == null ? null : Number(x as any)
