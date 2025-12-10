@@ -187,8 +187,6 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
           set.status = 409;
           return { message: "merchant already exists for this user" };
         }
-
-        // Transaction: create address -> merchant -> merchantFiles
         const result = await prisma.$transaction(async (tx) => {
           const address = await tx.address.create({
             data: {

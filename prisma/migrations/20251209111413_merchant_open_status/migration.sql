@@ -5,6 +5,9 @@ CREATE TYPE "Role" AS ENUM ('ADMIN', 'MERCHANT', 'CUSTOMER', 'STAFF');
 CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'SUSPENDED', 'DELETED');
 
 -- CreateEnum
+CREATE TYPE "OpenStatus" AS ENUM ('CLOSED', 'PAUSE', 'BUSY', 'OPEN');
+
+-- CreateEnum
 CREATE TYPE "MerchantStatus" AS ENUM ('PENDING', 'APPROVED', 'SUSPENDED');
 
 -- CreateEnum
@@ -68,6 +71,7 @@ CREATE TABLE "Merchant" (
     "categoryId" TEXT NOT NULL,
     "addressId" TEXT NOT NULL,
     "openHours" JSONB,
+    "openStatus" "OpenStatus" NOT NULL DEFAULT 'CLOSED',
     "status" "MerchantStatus" NOT NULL DEFAULT 'PENDING',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "listImageUrl" TEXT,
@@ -148,6 +152,7 @@ CREATE TABLE "Order" (
     "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'UNPAID',
     "pickupCode" TEXT,
     "pickupDeadline" TIMESTAMP(3),
+    "cutlery" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "preference" "OrderPreference" NOT NULL DEFAULT 'CONTACT',
     "note" TEXT,

@@ -1,10 +1,7 @@
-// src/merchant/employee/index.ts
 import { Elysia, t } from 'elysia';
 import { PrismaClient, EmployeeStatus, EmployeeRole } from '@prisma/client';
 
 const prisma = new PrismaClient();
-
-/* ------------------------- DTOs & tiny helpers ------------------------- */
 
 type EmployeeDTO = {
   id: string;
