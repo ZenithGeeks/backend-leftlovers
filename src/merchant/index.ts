@@ -112,194 +112,197 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
     }
   )
 
-  .post(
-  "/setup",
-  async ({ body, set }) => {
-    try {
-      // required: ownerUserId (merchant user)
-      const ownerUserId = body.ownerUserId;
-      if (!ownerUserId) {
-        set.status = 400;
-        return { message: "ownerUserId is required" };
-      }
-
-      const displayName = body.displayName?.trim();
-      const branchName = body.branchName?.trim() ?? null;
-      const description = body.description?.trim() ?? null;
-      const categoryId = body.categoryId;
-      const openHours = body.openHours ?? null;
-      const listImageUrl = body.listImageUrl ?? null;
-      const storeImageUrl = body.storeImageUrl ?? null;
-
-      const addressInput = body.address ?? null;
-      const files = Array.isArray(body.files) ? body.files : [];
-
-      // validations
-      if (!displayName) {
-        set.status = 400;
-        return { message: "displayName is required" };
-      }
-      if (!categoryId) {
-        set.status = 400;
-        return { message: "categoryId is required" };
-      }
-      if (!addressInput || !addressInput.line1) {
-        set.status = 400;
-        return { message: "address.line1 is required" };
-      }
-
-      // files count
-      const counts = files.reduce((acc: Record<string, number>, f: any) => {
-        acc[f.kind] = (acc[f.kind] || 0) + 1;
-        return acc;
-      }, {});
-
-      if ((counts.COMMERCIAL_REG ?? 0) !== 1) {
-        set.status = 400;
-        return { message: "exactly one COMMERCIAL_REG required" };
-      }
-
-      if ((counts.STORE_IMAGE ?? 0) > 5) {
-        set.status = 400;
-        return { message: "up to 5 STORE_IMAGE allowed" };
-      }
-
-      // validate merchant user exists
-      const user = await prisma.user.findUnique({ where: { id: ownerUserId } });
-      if (!user) {
-        set.status = 404;
-        return { message: "user not found" };
-      }
-      if (user.role !== Role.MERCHANT) {
-        set.status = 400;
-        return { message: "user is not a MERCHANT" };
-      }
-
-      // prevent duplicate merchant
-      const existing = await prisma.merchant.findFirst({
-        where: { ownerUserId },
-      });
-      if (existing) {
-        set.status = 409;
-        return { message: "merchant already exists for this user" };
-      }
-
-      // transaction
-      const result = await prisma.$transaction(async (tx) => {
-        const address = await tx.address.create({
-          data: {
-            label: addressInput.label ?? null,
-            line1: addressInput.line1,
-            line2: addressInput.line2 ?? null,
-            city: addressInput.city ?? null,
-            province: addressInput.province ?? null,
-            postalCode: addressInput.postalCode ?? null,
-            lat: addressInput.lat ?? undefined,
-            lng: addressInput.lng ?? undefined,
-          },
-          select: { id: true },
-        });
-
-        const merchant = await tx.merchant.create({
-          data: {
-            ownerUserId,
-            displayName,
-            branchName,
-            description,
-            categoryId,
-            addressId: address.id,
-            openHours: openHours ?? undefined,
-            listImageUrl,
-            StoreImageUrl: storeImageUrl, // proper DB field
-            status: MerchantStatus.PENDING,
-          },
-          select: {
-            id: true,
-            ownerUserId: true,
-            displayName: true,
-            branchName: true,
-            description: true,
-            categoryId: true,
-            addressId: true,
-            status: true,
-            createdAt: true,
-            listImageUrl: true,
-            StoreImageUrl: true,
-          },
-        });
-
-        if (files.length > 0) {
-          await tx.merchantFile.createMany({
-            data: files.map((f) => ({
-              merchantId: merchant.id,
-              kind: f.kind,
-              url: f.url,
-              label: f.label ?? null,
-            })),
-          });
+   .post(
+    "/setup",
+    async ({ body, set }) => {
+      try {
+        const ownerUserId = body.ownerUserId;
+        if (!ownerUserId) {
+          set.status = 400;
+          return { message: "ownerUserId is required" };
         }
 
-        return { merchant };
-      });
+        const displayName = body.displayName?.trim();
+        const categoryId = body.categoryId;
 
-      set.status = 201;
-      return {
-        message: "Merchant store info completed",
-        merchant: {
-          ...result.merchant,
-          createdAt: result.merchant.createdAt.toISOString(),
-        },
-      };
-    } catch (err: any) {
-      console.error("[Merchant Setup Error]", err);
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === "P2003"
-      ) {
-        set.status = 400;
-        return { message: "invalid foreign key or related resource missing" };
+        if (!displayName) {
+          set.status = 400;
+          return { message: "displayName is required" };
+        }
+        if (!categoryId) {
+          set.status = 400;
+          return { message: "categoryId is required" };
+        }
+
+        // Address validation
+        const addressInput = body.address;
+        if (!addressInput || !addressInput.line1) {
+          set.status = 400;
+          return { message: "address.line1 is required" };
+        }
+
+        // Validate merchant user exists
+        const user = await prisma.user.findUnique({
+          where: { id: ownerUserId }
+        });
+        if (!user) {
+          set.status = 404;
+          return { message: "user not found" };
+        }
+        if (user.role !== Role.MERCHANT) {
+          set.status = 400;
+          return { message: "user is not a MERCHANT" };
+        }
+
+        // Prevent duplicate merchant
+        const exists = await prisma.merchant.findFirst({
+          where: { ownerUserId }
+        });
+        if (exists) {
+          set.status = 409;
+          return { message: "merchant already exists for this user" };
+        }
+
+        const files = Array.isArray(body.files) ? body.files : [];
+
+        // Validate file counts
+        const counts = files.reduce((m: Record<string, number>, f) => {
+          m[f.kind] = (m[f.kind] || 0) + 1;
+          return m;
+        }, {});
+
+        if ((counts.COMMERCIAL_REG ?? 0) !== 1) {
+          set.status = 400;
+          return { message: "exactly one COMMERCIAL_REG required" };
+        }
+        if ((counts.STORE_IMAGE ?? 0) > 5) {
+          set.status = 400;
+          return { message: "up to 5 STORE_IMAGE allowed" };
+        }
+
+        // DB transaction
+        const result = await prisma.$transaction(async (tx) => {
+          const address = await tx.address.create({
+            data: {
+              label: addressInput.label ?? null,
+              line1: addressInput.line1,
+              line2: addressInput.line2 ?? null,
+              city: addressInput.city ?? null,
+              province: addressInput.province ?? null,
+              postalCode: addressInput.postalCode ?? null,
+              lat: addressInput.lat ?? undefined,
+              lng: addressInput.lng ?? undefined
+            },
+            select: { id: true }
+          });
+
+          const merchant = await tx.merchant.create({
+            data: {
+              ownerUserId,
+              displayName,
+              branchName: body.branchName ?? null,
+              description: body.description ?? null,
+              categoryId,
+              addressId: address.id,
+              openHours: body.openHours ?? undefined,
+              listImageUrl: body.listImageUrl ?? null,
+              StoreImageUrl: body.storeImageUrl ?? null,
+              status: MerchantStatus.PENDING
+            },
+            select: {
+              id: true,
+              ownerUserId: true,
+              displayName: true,
+              branchName: true,
+              description: true,
+              categoryId: true,
+              addressId: true,
+              createdAt: true,
+              status: true,
+              listImageUrl: true,
+              StoreImageUrl: true
+            }
+          });
+
+          if (files.length > 0) {
+            await tx.merchantFile.createMany({
+              data: files.map((f) => ({
+                merchantId: merchant.id,
+                kind: f.kind,
+                url: f.url,
+                label: f.label ?? null
+              }))
+            });
+          }
+
+          return { merchant };
+        });
+
+        set.status = 201;
+        return {
+          message: "Merchant store info completed",
+          merchant: {
+            ...result.merchant,
+            createdAt: result.merchant.createdAt.toISOString()
+          }
+        };
+      } catch (err: any) {
+        console.error("[Merchant Setup Error]", err);
+
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === "P2003"
+        ) {
+          set.status = 400;
+          return { message: "invalid foreign key or related resource missing" };
+        }
+
+        set.status = 500;
+        return { message: "Internal server error" };
       }
-      set.status = 500;
-      return { message: "Internal server error" };
-    }
-  },
-  {
-    body: t.Object({
-      ownerUserId: t.String(),            // <---- FIXED!
-      displayName: t.String(),
-      branchName: t.Optional(t.String()),
-      description: t.Optional(t.String()),
-      categoryId: t.String(),
-      openHours: t.Optional(t.Any()), // ALLOW null
-      listImageUrl: t.Optional(t.String()),
-      storeImageUrl: t.Optional(t.String()),
-      address: t.Object({
-        label: t.Optional(t.String()),
-        line1: t.String(),
-        line2: t.Optional(t.String()),
-        city: t.Optional(t.String()),
-        province: t.Optional(t.String()),
-        postalCode: t.Optional(t.String()),
-        lat: t.Optional(t.Number()),
-        lng: t.Optional(t.Number()),
-      }),
-      files: t.Optional(
-        t.Array(
-          t.Object({
-            kind: t.Union([
-              t.Literal("COMMERCIAL_REG"),
-              t.Literal("OWNER_ID"),
-              t.Literal("STORE_IMAGE"),
-              t.Literal("OTHER"),
-            ]),
-            url: t.String(),
-            label: t.Optional(t.String()),
-          })
+    },
+    {
+      body: t.Object({
+        ownerUserId: t.String(),
+        displayName: t.String(),
+        branchName: t.Optional(t.String()),
+        description: t.Optional(t.String()),
+        categoryId: t.String(),
+
+        // FIX — allow null
+        openHours: t.Nullable(t.Any()),
+
+        listImageUrl: t.Optional(t.String()),
+        storeImageUrl: t.Optional(t.String()),
+
+        address: t.Object({
+          label: t.Optional(t.String()),
+          line1: t.String(),
+          line2: t.Optional(t.String()),
+          city: t.Optional(t.String()),
+          province: t.Optional(t.String()),
+          postalCode: t.Optional(t.String()),
+          lat: t.Optional(t.Number()),
+          lng: t.Optional(t.Number())
+        }),
+
+        files: t.Optional(
+          t.Array(
+            t.Object({
+              kind: t.Union([
+                t.Literal("COMMERCIAL_REG"),
+                t.Literal("OWNER_ID"),
+                t.Literal("STORE_IMAGE"),
+                t.Literal("OTHER")
+              ]),
+              url: t.String(),
+              label: t.Optional(t.String())
+            })
+          )
         )
-      ),
-    }),
-  }
-)
+      })
+    }
+  )
 
   .get('/merchants', async ({ params, set }) => {
     const merchants = await prisma.merchant.findMany({
