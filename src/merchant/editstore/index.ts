@@ -26,6 +26,8 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
         return { message: 'Merchant not found' };
       }
 
+      const addr = merchant.address;
+
       return {
         id: merchant.id,
         name: merchant.displayName,
@@ -43,11 +45,20 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
           email: merchant.owner.email,
         },
         address: {
-          line1: merchant.address.line1,
-          line2: merchant.address.line2,
-          city: merchant.address.city,
-          province: merchant.address.province,
-          postalCode: merchant.address.postalCode,
+          line1: addr.line1,
+          line2: addr.line2,
+          city: addr.city,
+          province: addr.province,
+          postalCode: addr.postalCode,
+          // Prisma Decimal -> number (or null)
+          lat:
+            addr.lat !== null && addr.lat !== undefined
+              ? Number(addr.lat)
+              : null,
+          lng:
+            addr.lng !== null && addr.lng !== undefined
+              ? Number(addr.lng)
+              : null,
         },
         storeId: merchant.id,
       };
@@ -116,6 +127,10 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
           addressUpdate.province = body.address.province;
         if (body.address.postalCode !== undefined)
           addressUpdate.postalCode = body.address.postalCode;
+
+        // new: lat / lng (numbers; Prisma will map to Decimal)
+        if (body.address.lat !== undefined) addressUpdate.lat = body.address.lat;
+        if (body.address.lng !== undefined) addressUpdate.lng = body.address.lng;
       }
 
       const hasMerchantUpdate = Object.keys(merchantUpdate).length > 0;
@@ -153,6 +168,8 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
           return { updatedMerchant, updatedOwner, updatedAddress };
         });
 
+        const addr = result.updatedAddress;
+
         return {
           id: result.updatedMerchant.id,
           name: result.updatedMerchant.displayName,
@@ -170,11 +187,19 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
             email: result.updatedOwner.email,
           },
           address: {
-            line1: result.updatedAddress.line1,
-            line2: result.updatedAddress.line2,
-            city: result.updatedAddress.city,
-            province: result.updatedAddress.province,
-            postalCode: result.updatedAddress.postalCode,
+            line1: addr.line1,
+            line2: addr.line2,
+            city: addr.city,
+            province: addr.province,
+            postalCode: addr.postalCode,
+            lat:
+              addr.lat !== null && addr.lat !== undefined
+                ? Number(addr.lat)
+                : null,
+            lng:
+              addr.lng !== null && addr.lng !== undefined
+                ? Number(addr.lng)
+                : null,
           },
           storeId: result.updatedMerchant.id,
         };
@@ -201,6 +226,8 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
             city: t.Optional(t.String()),
             province: t.Optional(t.String()),
             postalCode: t.Optional(t.String()),
+            lat: t.Optional(t.Number()),   // 👈 new
+            lng: t.Optional(t.Number()),   // 👈 new
           })
         ),
       }),
