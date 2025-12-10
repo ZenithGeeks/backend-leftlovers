@@ -360,6 +360,13 @@ export const Customer = new Elysia({ prefix: "/customer" })
                             options: true
 
                         }
+                    },
+                    merchant: {
+                      select:
+                      {
+                        displayName: true,
+                        listImageUrl: true
+                      }
                     }
                 }
             })
