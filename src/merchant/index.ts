@@ -349,7 +349,15 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
     .get('/:merchantId', async ({ params, set }) => {
       const item = await prisma.merchant.findFirst({
         where: { id: params.merchantId },
-        include: {owner: true}
+        include: {
+          owner: true,
+          orders: {
+            include: {
+              review: true
+            }
+          }
+
+        }
       })
   
       if (!item) {
