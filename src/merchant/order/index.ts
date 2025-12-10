@@ -8,9 +8,9 @@ import {
 
 const prisma = new PrismaClient()
 export const merchantOrder = new Elysia({ prefix: '/merchant' })
-   .get('/:merchantId/order', async ({ params, set }) => {
-    const orders = await prisma.order.findMany({
-      where: { merchantId: params.merchantId },
+   .get('/order/:orderId', async ({ params, set }) => {
+    const orders = await prisma.order.findUnique({
+      where: { id: params.orderId },
       include: {
         items: {
           include: { 
@@ -19,12 +19,16 @@ export const merchantOrder = new Elysia({ prefix: '/merchant' })
             },
             menu: true  },
         },
+        merchant:{
+          include:{
+            address: true
+          }
+        },
         customer: true,
       },
-      orderBy: { createdAt: 'desc' },
     })
 
-    if (!orders.length) {
+    if (!orders) {
       set.status = 404
       return { message: 'No orders found' }
     }
