@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -19,6 +20,14 @@ enum UserStatus {
   SUSPENDED
   DELETED
 }
+
+enum OpenStatus {
+  CLOSED
+  PAUSE
+  BUSY
+  OPEN
+}
+
 
 enum MerchantStatus {
   PENDING
@@ -135,6 +144,7 @@ model Merchant {
   categoryId    String
   addressId     String
   openHours     Json?
+  openStatus    OpenStatus      @default(CLOSED)
   status        MerchantStatus  @default(PENDING)
   createdAt     DateTime        @default(now())
   listImageUrl  String?

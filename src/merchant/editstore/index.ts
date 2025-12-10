@@ -66,7 +66,40 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
       },
     }
   )
+  .put(
+    "/:merchantId/store-open-status",
+    async ({ params, body, set }) => {
+      try {
+        const merchant = await prisma.merchant.update({
+          where: { id: params.merchantId },
+          data: { openStatus: body.openStatus },
+        });
 
+        return merchant;
+      } catch (err: any) {
+        if (err?.code === "P2025") {
+          set.status = 404;
+          return { message: "merchant not found" };
+        }
+        set.status = 500;
+        return { message: "failed to update open status" };
+      }
+    },
+    {
+      body: t.Object({
+        openStatus: t.Union([
+          t.Literal("CLOSED"),
+          t.Literal("PAUSE"),
+          t.Literal("BUSY"),
+          t.Literal("OPEN"),
+        ]),
+      }),
+        detail: {
+        tags: ['Merchant'],
+        summary: 'Edit Open Status of store',
+      },
+    }
+  )
   /* ===========================================================
      PUT /merchant/:merchantId/editstore
      =========================================================== */
@@ -129,28 +162,28 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
         const result = await prisma.$transaction(async (tx) => {
           const updatedMerchant = hasMerchantUpdate
             ? await tx.merchant.update({
-                where: { id: merchant.id },
-                data: merchantUpdate,
-                include: {
-                  owner: true,
-                  address: true,
-                  category: true,
-                },
-              })
+              where: { id: merchant.id },
+              data: merchantUpdate,
+              include: {
+                owner: true,
+                address: true,
+                category: true,
+              },
+            })
             : merchant;
 
           const updatedOwner = hasOwnerUpdate
             ? await tx.user.update({
-                where: { id: merchant.ownerUserId },
-                data: ownerUpdate,
-              })
+              where: { id: merchant.ownerUserId },
+              data: ownerUpdate,
+            })
             : merchant.owner;
 
           const updatedAddress = hasAddressUpdate
             ? await tx.address.update({
-                where: { id: merchant.addressId },
-                data: addressUpdate,
-              })
+              where: { id: merchant.addressId },
+              data: addressUpdate,
+            })
             : merchant.address;
 
           return { updatedMerchant, updatedOwner, updatedAddress };
