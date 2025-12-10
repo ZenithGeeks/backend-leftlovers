@@ -338,8 +338,11 @@ export const Customer = new Elysia({ prefix: "/customer" })
             {
               menu : true,
               options: true
-
             }
+          },
+          merchant: {
+           select: {displayName : true, listImageUrl: true
+           }
           }
         }
       })
