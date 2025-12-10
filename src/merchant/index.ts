@@ -353,6 +353,9 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
           owner: true,
           orders: {
             include: {
+              items: {
+                include: {menu: true}
+              },
               review: true
             }
           }
