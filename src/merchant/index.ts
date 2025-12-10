@@ -270,7 +270,7 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
       branchName: t.Optional(t.String()),
       description: t.Optional(t.String()),
       categoryId: t.String(),
-      openHours: t.Nullable(t.Any()), // ALLOW null
+      openHours: t.Optional(t.Any()), // ALLOW null
       listImageUrl: t.Optional(t.String()),
       storeImageUrl: t.Optional(t.String()),
       address: t.Object({
