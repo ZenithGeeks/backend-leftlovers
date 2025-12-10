@@ -42,9 +42,6 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
           phone: merchant.owner.phone,
           email: merchant.owner.email,
         },
-        contact: {
-          storePhone: merchant.owner.phone,
-        },
         address: {
           line1: merchant.address.line1,
           line2: merchant.address.line2,
@@ -171,9 +168,6 @@ export const MerchantEditStore = new Elysia({ prefix: '/merchant' })
             name: result.updatedOwner.name,
             phone: result.updatedOwner.phone,
             email: result.updatedOwner.email,
-          },
-          contact: {
-            storePhone: result.updatedOwner.phone,
           },
           address: {
             line1: result.updatedAddress.line1,
