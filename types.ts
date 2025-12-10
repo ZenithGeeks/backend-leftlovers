@@ -136,11 +136,13 @@ export const MenuCreateSchema = t.Object({
     groupTemplates: t.Optional(t.Array(GroupCreateSchema))
 })
 export const MenuUpdateSchema = t.Intersect([
-  t.Partial(MenuCreateSchema),
+  t.Partial(
+    t.Omit(MenuCreateSchema, ["groupTemplates"])
+  ),
   t.Object({
-    groupTemplateIds: t.Optional(t.Array(UUID)) // <— NEW, relation-only field
+    groupTemplateIds: t.Optional(t.Array(UUID))
   })
-])
+]);
 
 /* ============================== Helpers ============================== */
 export const toNumber = (x: Decimal | number | null | undefined) =>

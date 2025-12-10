@@ -125,7 +125,7 @@ function buildPriceBreakdown(
   });
 }
 
-export function parseDOB(input?: string | Date): Date{
+export function parseDOB(input?: string | Date): Date {
   if (!input) {
     throw new Error("Date of birth is required");
   };
@@ -328,6 +328,30 @@ export const Customer = new Elysia({ prefix: "/customer" })
     { tags: ["Order"] }
   )
   .get(
+    "/Allorder/:customerId",
+    async ({ params, set }) => {
+      const order = await prisma.order.findMany({
+        where: { customerId: params.customerId },
+        include: {
+          items: {
+            include: 
+            {
+              menu : true,
+              options: true
+
+            }
+          }
+        }
+      })
+      if (!order) {
+        set.status = 404;
+        return { message: "Order not found" };
+      }
+      return order;
+    },
+    { tags: ["Order"] }
+  )
+  .get(
     "/:merchantId/order/:orderId",
     async ({ params, set }) => {
       const order = await prisma.order.findFirst({
@@ -368,78 +392,78 @@ export const Customer = new Elysia({ prefix: "/customer" })
     },
     { tags: ["Order"] }
   )
-.post(
-  '/',
-  async ({ body, set }) => {
-    try {
-      const rawName = body.name
-      if (!rawName || typeof rawName !== 'string' || !rawName.trim()) {
-        set.status = 400
-        return { message: 'Name is required' }
-      }
-      const name = rawName.trim()
-      const email = normEmail(body.email)
-      const phone = body.phone?.trim() || null
-      const avatarUrl = body.avatarUrl ?? null
-      const dobDate = parseDOB(body.dob)
-      const role = (body.role as Role) ?? Role.CUSTOMER
-      const status = (body.status as UserStatus) ?? UserStatus.ACTIVE
-
-      
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          phone,
-          avatarUrl,
-          dob: dobDate, 
-          role,
-          status,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          dob: true,
-          avatarUrl: true,
-          role: true,
-          status: true,
-          createdAt: true,
-        },
-      })
-
-      set.status = 201
-      return {
-        message: 'User created',
-        user: {
-          ...user,
-          createdAt: user.createdAt.toISOString(),
+  .post(
+    '/',
+    async ({ body, set }) => {
+      try {
+        const rawName = body.name
+        if (!rawName || typeof rawName !== 'string' || !rawName.trim()) {
+          set.status = 400
+          return { message: 'Name is required' }
         }
-      }
-    } catch (err: any) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError) {
-        if (err.code === 'P2002') {
-          set.status = 409
-          return { message: 'Duplicate email' }
+        const name = rawName.trim()
+        const email = normEmail(body.email)
+        const phone = body.phone?.trim() || null
+        const avatarUrl = body.avatarUrl ?? null
+        const dobDate = parseDOB(body.dob)
+        const role = (body.role as Role) ?? Role.CUSTOMER
+        const status = (body.status as UserStatus) ?? UserStatus.ACTIVE
+
+
+        const user = await prisma.user.create({
+          data: {
+            name,
+            email,
+            phone,
+            avatarUrl,
+            dob: dobDate,
+            role,
+            status,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            dob: true,
+            avatarUrl: true,
+            role: true,
+            status: true,
+            createdAt: true,
+          },
+        })
+
+        set.status = 201
+        return {
+          message: 'User created',
+          user: {
+            ...user,
+            createdAt: user.createdAt.toISOString(),
+          }
         }
+      } catch (err: any) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError) {
+          if (err.code === 'P2002') {
+            set.status = 409
+            return { message: 'Duplicate email' }
+          }
+        }
+        console.error('[User Create Error]', err)
+        set.status = 500
+        return { message: err }
       }
-      console.error('[User Create Error]', err)
-      set.status = 500
-      return { message: err }
+    },
+    {
+      body: UserCreateSchema,
+      response: {
+        201: SuccessCreatedUserSchema,
+        400: ErrorSchema,
+        409: ErrorSchema,
+        500: ErrorSchema,
+      },
+      detail: {
+        tags: ['Users'],
+        summary: 'Create a new user',
+      },
     }
-  },
-  {
-    body: UserCreateSchema,
-    response: {
-      201: SuccessCreatedUserSchema,
-      400: ErrorSchema,
-      409: ErrorSchema,
-      500: ErrorSchema,
-    },
-    detail: {
-      tags: ['Users'],
-      summary: 'Create a new user',
-    },
-  }
-)
+  )
