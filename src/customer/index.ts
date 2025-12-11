@@ -436,7 +436,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
 
                     return { message: 'Name is required' }
                 }
-
+                const id = body.id
                 const name = rawName.trim()
                 const email = normEmail(body.email)
                 const phone = body.phone?.trim() || null
@@ -446,6 +446,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
                 const status = (body.status as UserStatus) ?? UserStatus.ACTIVE
                 const user = await prisma.user.create({
                     data: {
+                        id,
                         name,
                         email,
                         phone,

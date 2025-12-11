@@ -206,6 +206,7 @@ export const castMenuItem = (m: any) => ({
 
 // -- Create (User) --
 export const UserCreateSchema = t.Object({
+  id: t.Optional(t.String()),
   name: t.Optional(t.String({ minLength: 0 })),   // name is optional now
   email: t.String({ format: "email" }),
   phone: t.Optional(t.String({ minLength: 8 })),     // optional to match model
