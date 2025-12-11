@@ -194,8 +194,8 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
       // 4) Link to existing User by normalized email (if any)
       let linkUserId: string | undefined = undefined;
       if (normalizedEmail) {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: normalizedEmail },
+        const existingUser = await prisma.user.findFirst({
+          where: { email: normalizedEmail, role: "MERCHANT" },
           select: { id: true },
         });
         if (existingUser) {
@@ -274,8 +274,8 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
           userIdUpdate = null;
         } else {
           emailUpdate = normalizedEmail;
-          const existingUser = await prisma.user.findUnique({
-            where: { email: normalizedEmail },
+          const existingUser = await prisma.user.findFirst({
+            where: { email: normalizedEmail, role: "MERCHANT" },
             select: { id: true },
           });
           userIdUpdate = existingUser ? existingUser.id : null;

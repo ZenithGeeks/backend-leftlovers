@@ -112,7 +112,7 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
     }
   )
 
-   .post(
+  .post(
     "/setup",
     async ({ body, set }) => {
       try {
@@ -324,26 +324,56 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
     }
     return categories
   }, { tags: ['Merchant'] })
-    .get('/:merchantId', async ({ params, set }) => {
-      const item = await prisma.merchant.findFirst({
-        where: { id: params.merchantId },
-        include: {
-          owner: true,
-          orders: {
-            include: {
-              items: {
-                include: {menu: true}
-              },
-              review: true
-            }
+  .get('/:merchantId', async ({ params, set }) => {
+    const item = await prisma.merchant.findFirst({
+      where: { id: params.merchantId },
+      include: {
+        owner: true,
+        orders: {
+          include: {
+            items: {
+              include: { menu: true }
+            },
+            review: true
           }
-
         }
-      })
-  
-      if (!item) {
-        set.status = 404
-        return { message: 'Merchant not found' }
+
       }
-      return item
-    }, { tags: ['Merchant'] })
+    })
+
+    if (!item) {
+      set.status = 404
+      return { message: 'Merchant not found' }
+    }
+    return item
+  }, { tags: ['Merchant'] })
+  .get('/merchant/:ownerUserId/LandingDashboard', async ({ params, set }) => {
+    const { ownerUserId } = params;
+    const item = await prisma.merchant.findFirst({
+      where: { ownerUserId: ownerUserId },
+      include: {
+        owner: true,
+        orders: {
+          include: {
+            items: {
+              include: { menu: true }
+            },
+            review: true
+          }
+        }
+
+      }
+    })
+
+    if (!item) {
+      set.status = 404
+      return { message: 'Merchant not found' }
+    }
+    return item
+  },
+    {
+      detail: { tags: ['Merchant'], summary: 'Get Merchant Info by owner user id' },
+
+    }
+
+  )
