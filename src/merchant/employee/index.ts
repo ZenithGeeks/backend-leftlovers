@@ -379,7 +379,7 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
     }
   )
   .get(
-  "/:userId/employees/merchant",
+  "/employees/merchant/:userId",
   async ({ params, set }) => {
     const userId = params.userId;
 
@@ -409,5 +409,7 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
     params: t.Object({
       userId: t.String({ minLength: 1 }),
     }),
-  }
+      detail: { tags: ['Employees'], summary: 'Get Merchant for employee' },
+  },
+  
 )
