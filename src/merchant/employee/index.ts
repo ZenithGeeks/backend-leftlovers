@@ -379,18 +379,17 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
     }
   )
   .get(
-  "/employees/merchant/:userId",
-  async ({ params, set }) => {
-    const userId = params.userId;
+  "/employees/merchant",
+  async ({ query, set }) => {
+    const email = String(query.email ?? "").trim().toLowerCase();
 
     const emp = await prisma.employee.findFirst({
       where: {
-        userId,
+        email,
         status: EmployeeStatus.ACTIVE,
       },
       orderBy: { createdAt: "desc" },
       select: {
-        merchantId: true,
         merchant: { select: { id: true, status: true } },
       },
     });
@@ -406,10 +405,8 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
     };
   },
   {
-    params: t.Object({
-      userId: t.String({ minLength: 1 }),
+    query: t.Object({
+      email: t.String({ minLength: 3 }),
     }),
-      detail: { tags: ['Employees'], summary: 'Get Merchant for employee' },
-  },
-  
+  }
 )
