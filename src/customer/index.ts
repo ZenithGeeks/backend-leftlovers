@@ -30,18 +30,8 @@ class OrderError extends Error {
 const D = (n: number | string | Prisma.Decimal) => new Prisma.Decimal(n)
 const sum = (arr: Prisma.Decimal[]) => arr.reduce((a, b) => a.plus(b), D(0))
 const now = () => new Date()
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000
 const genPickupCode = () =>
     Math.floor(100000 + Math.random() * 900000).toString()
-function computePickupDeadline(menus: MenuWithGroups[]): Date {
-    const n = now()
-    const plus2h = new Date(n.getTime() + TWO_HOURS_MS)
-    const earliest = menus
-        .map((m) => m.expiresAt)
-        .reduce((min, cur) => (cur < min ? cur : min), menus[0].expiresAt)
-
-    return earliest < plus2h ? earliest : plus2h
-}
 function validateOptionsOrThrow(
     items: Array<{ menuItemId: string; optionIds?: string[] }>,
     menuMap: Map<string, MenuWithGroups>
@@ -147,7 +137,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
         async ({ params, body, set }) => {
             try {
                 const { merchantId } = params as { merchantId: string }
-                const { customerId, items, preference, cutlery, note } = body as {
+                const { customerId, items, preference, cutlery, note, pickupDeadline } = body as {
                     customerId: string
                     items: Array<{
                         menuItemId: string
@@ -157,6 +147,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
                     preference?: OrderPreference
                     cutlery?: boolean
                     note?: string
+                    pickupDeadline: string
                 }
                 const merchant = await prisma.merchant.findUnique({
                     where: { id: merchantId },
@@ -181,7 +172,6 @@ export const Customer = new Elysia({ prefix: "/customer" })
                     menuList.map((m) => [m.id, m])
                 )
                 validateOptionsOrThrow(items, menuMap)
-                const pickupDeadline = computePickupDeadline(menuList)
                 const lines = buildPriceBreakdown(items, menuMap)
                 const subtotal = sum(lines.map((l) => l.line))
                 const discountTotal = D(0)
@@ -233,7 +223,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
                                     requested: line.qty,
                                     item
                                 })
-                                
+
                                 throw new OrderError(409, "One or more items are out of stock")
                             }
 
@@ -362,11 +352,11 @@ export const Customer = new Elysia({ prefix: "/customer" })
                         }
                     },
                     merchant: {
-                      select:
-                      {
-                        displayName: true,
-                        listImageUrl: true
-                      }
+                        select:
+                        {
+                            displayName: true,
+                            listImageUrl: true
+                        }
                     }
                 }
             })
