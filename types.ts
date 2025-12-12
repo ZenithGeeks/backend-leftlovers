@@ -99,7 +99,6 @@ export const OptionCreateSchema = t.Object({
     priceDelta: Money,
     active: t.Optional(t.Boolean())
 })
-export const OptionUpdateSchema = t.Partial(OptionCreateSchema)
 
 export const GroupCreateSchema = t.Object({
     name: t.String(),
@@ -115,6 +114,14 @@ export const GroupUpdateSchema = t.Partial(
         maxSelect: t.Number()
     })
 )
+export const OptionUpdateSchema = t.Partial(
+    t.Object({
+        name: t.String(),
+        minSelect: t.Number(),
+        maxSelect: t.Number()
+    })
+)
+
 
 export const MenuCreateSchema = t.Object({
     name: t.String(),
@@ -250,3 +257,33 @@ export const OrderStatusUpdateSchema = t.Object({
     t.Literal('CANCELLED'),
   ])
 })
+
+
+
+export const UserStatusSchema = t.Union([
+  t.Literal("ACTIVE"),
+  t.Literal("SUSPENDED"),
+  t.Literal("DELETED"),
+]);
+
+export const CreateMerchantUserBodySchema = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String({ format: "email" }),
+  phone: t.Optional(t.String({ minLength: 8 })),
+  dob: t.String(),
+  avatarUrl: t.Optional(t.String()),
+  role: t.String(),
+  status: UserStatusSchema,
+});
+
+export const MerchantUserResponseSchema = t.Object({
+  id: t.String(),
+  name: t.String(),
+  email: t.String(),
+  phone: t.Union([t.String(), t.Null()]),
+  dob: t.Union([t.String(), t.Null()]),
+  avatarUrl: t.Union([t.String(), t.Null()]),
+  role: t.Literal("MERCHANT"),
+  status: UserStatusSchema,
+});

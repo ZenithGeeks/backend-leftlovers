@@ -1,6 +1,6 @@
 import { Elysia, HTTPHeaders, StatusMap, t } from 'elysia'
 import { PrismaClient, MenuItemStatus, Role, UserStatus, MerchantStatus, Prisma, } from '@prisma/client'
-import { ErrorSchema } from '../../types';
+import { CreateMerchantUserBodySchema, ErrorSchema, MerchantUserResponseSchema } from '../../types';
 import { ElysiaCookie } from 'elysia/cookies';
 
 const prisma = new PrismaClient()
@@ -18,99 +18,91 @@ function normEmail(e: string) {
 
 export const Merchant = new Elysia({ prefix: '/merchant' })
   .post(
-    '/user',
+    "/user",
     async ({ body, set }) => {
       try {
-        const name = body.name?.trim()
-        const email = normEmail(body.email)
-        const phone = body.phone?.trim() || null
-        const avatarUrl = body.avatarUrl ?? null
+        const id = body.id?.trim();
+        if (!id) {
+          set.status = 400;
+          return { message: "User ID is required" };
+        }
 
-        // Create user as MERCHANT
+        const name = body.name?.trim();
+        if (!name) {
+          set.status = 400;
+          return { message: "Name is required" };
+        }
+
+        const email = normEmail(body.email);
+        const phone = body.phone?.trim() || null;
+        const avatarUrl = body.avatarUrl ?? null;
+
+        const dob = parseDOB(body.dob);
+        if (!dob) {
+          set.status = 400;
+          return { message: "Invalid or missing date of birth" };
+        }
+
+        const status: UserStatus = body.status;
         const user = await prisma.user.create({
           data: {
+            id,
             name,
             email,
             phone,
             avatarUrl,
-            dob: null,
+            dob,
             role: Role.MERCHANT,
-            status: UserStatus.ACTIVE,
+            status,
           },
           select: {
             id: true,
             name: true,
             email: true,
             phone: true,
+            dob: true,
             avatarUrl: true,
             role: true,
             status: true,
-            createdAt: true,
           },
-        })
+        });
 
-        // build next-url for frontend to continue merchant setup
-        const nextUrl = `/merchant/setup?userId=${user.id}`
-
-        // optional: set Location header (helps clients that follow Location)
-        set.headers = { ...(set.headers as Record<string, string | number>), Location: nextUrl }
-        set.status = 201
+        set.status = 201;
 
         return {
-          message: 'Merchant user created',
-          user: {
-            ...user,
-            createdAt: user.createdAt.toISOString(),
-            userId: user.id,
-          },
-          nextUrl,
-        }
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          dob: user.dob ? user.dob.toISOString() : null,
+          avatarUrl: user.avatarUrl,
+          role: user.role,
+          status: user.status,
+        };
       } catch (err: any) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-          set.status = 409
-          return { message: 'Duplicate email' }
+        if (err instanceof Prisma.PrismaClientKnownRequestError) {
+          if (err.code === "P2002") {
+            set.status = 409;
+            return { message: "User already exists" };
+          }
         }
-        console.error('[Merchant User Create Error]', err)
-        set.status = 500
-        return { message: 'Internal server error' }
+
+        console.error("[Merchant User Create Error]", err);
+        set.status = 500;
+        return { message: "Internal server error" };
       }
     },
     {
-      body: t.Object({
-        name: t.String(),
-        email: t.String({ format: 'email' }),
-        phone: t.Optional(t.String({ minLength: 8 })),
-        avatarUrl: t.Optional(t.String()),
-      }),
+      body: CreateMerchantUserBodySchema,
       response: {
-        201: t.Object({
-          message: t.Literal('Merchant user created'),
-          user: t.Object({
-            id: t.String(),
-            name: t.Union([t.String(), t.Null()]),
-            email: t.String(),
-            phone: t.Union([t.String(), t.Null()]),
-            avatarUrl: t.Union([t.String(), t.Null()]),
-            role: t.Literal('MERCHANT'),
-            status: t.Union([
-              t.Literal('ACTIVE'),
-              t.Literal('SUSPENDED'),
-              t.Literal('DELETED'),
-            ]),
-            createdAt: t.String(),
-            userId: t.String(),      // <-- added
-          }),
-          nextUrl: t.String(),      // <-- added
-        }),
+        201: MerchantUserResponseSchema,
         409: ErrorSchema,
         500: ErrorSchema,
       },
-      detail: {
-        tags: ['Users'],
-        summary: 'Create a new merchant user',
-      },
+      detail: { tags: ['Merchant'], summary: 'Create User Merchant' },
     }
   )
+
 
   .post(
     "/setup",
