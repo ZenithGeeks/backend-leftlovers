@@ -132,6 +132,21 @@ function normEmail(e: string) {
 }
 
 export const Customer = new Elysia({ prefix: "/customer" })
+     .get(
+        "/getUserInfo/:customerId",
+        async ({ params, set }) => {
+            const order = await prisma.user.findUnique({
+                where: { id: params.customerId}
+            })
+            if (!order) {
+                set.status = 404
+                return { message: "No customer found" }
+            }
+
+            return order
+        },
+        { detail : {tags: ["Customer"]} }
+    )
     .post(
         "/:merchantId/order",
         async ({ params, body, set }) => {
