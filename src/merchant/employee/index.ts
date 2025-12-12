@@ -377,4 +377,37 @@ export const MerchantEmployees = new Elysia({ prefix: '/merchant' })
       params: paramsEmp,
       detail: { tags: ['Employees'], summary: 'Delete employee' },
     }
-  );
+  )
+  .get(
+  "/:userId/employees/merchant",
+  async ({ params, set }) => {
+    const userId = params.userId;
+
+    const emp = await prisma.employee.findFirst({
+      where: {
+        userId,
+        status: EmployeeStatus.ACTIVE,
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        merchantId: true,
+        merchant: { select: { id: true, status: true } },
+      },
+    });
+
+    if (!emp?.merchant) {
+      set.status = 404;
+      return { message: "Employee not found" };
+    }
+
+    return {
+      merchantId: emp.merchant.id,
+      merchantStatus: emp.merchant.status,
+    };
+  },
+  {
+    params: t.Object({
+      userId: t.String({ minLength: 1 }),
+    }),
+  }
+)
