@@ -310,7 +310,8 @@ export const Merchant = new Elysia({ prefix: '/merchant' })
         const merchants = await prisma.merchant.findMany({
             orderBy: { createdAt: 'desc' },
             include: {
-                address: true
+                address: true,
+                category: true
             }
         })
 
