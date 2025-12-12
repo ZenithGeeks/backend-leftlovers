@@ -26,7 +26,8 @@ export const OrderCreateSchema = t.Object({
     customerId: UUID,
     preference: t.Optional(t.Enum(OrderPreference)),
     note: t.Optional(t.String({ maxLength: 1000 })),
-    items: t.Array(OrderItemInputSchema, { minItems: 1 })
+    items: t.Array(OrderItemInputSchema, { minItems: 1 }),
+    pickupDeadline: t.String({ format: 'date-time' })
 })
 
 export const ErrorSchema = t.Object({ message: t.String() })

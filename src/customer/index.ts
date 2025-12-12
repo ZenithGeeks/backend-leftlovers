@@ -93,8 +93,8 @@ function buildPriceBreakdown(
                 .filter((o) => chosen.has(o.id))
                 .map((o) => D(o.priceDelta))
         )
-        const unit = base.plus(optionSum) // per-unit price (base + chosen options)
-        const line = unit.mul(it.quantity) // extended line total
+        const unit = base.plus(optionSum)
+        const line = unit.mul(it.quantity)
 
         return {
             menuId: it.menuItemId,
@@ -296,6 +296,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
 
                 if (err instanceof OrderError) {
                     set.status = err.http
+
                     return { message: err.message }
                 }
 
@@ -330,6 +331,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
 
             if (!order) {
                 set.status = 404
+                
                 return { message: "Menu not found" }
             }
 
