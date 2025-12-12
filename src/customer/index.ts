@@ -188,7 +188,7 @@ export const Customer = new Elysia({ prefix: "/customer" })
                                 totalAmount,
                                 paymentStatus: PaymentStatus.PAID,
                                 pickupCode: genPickupCode(),
-                                pickupDeadline,
+                                pickupDeadline: new Date(pickupDeadline),
                                 preference: preference ?? OrderPreference.CONTACT,
                                 cutlery: cutlery ?? false,
                                 note,
