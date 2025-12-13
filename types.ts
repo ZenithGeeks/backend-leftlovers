@@ -23,7 +23,7 @@ export const OrderItemInputSchema = t.Object({
 })
 
 export const OrderCreateSchema = t.Object({
-    customerId: UUID,
+    customerId: t.String(),
     preference: t.Optional(t.Enum(OrderPreference)),
     note: t.Optional(t.String({ maxLength: 1000 })),
     items: t.Array(OrderItemInputSchema, { minItems: 1 }),
