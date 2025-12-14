@@ -11,15 +11,13 @@ declare global {
   var __txMock: any;
 }
 
-type AnyFn = (...args: any[]) => any;
-
 const makeMockFn = (): any => mock((..._args: any[]) => undefined);
 
 /**
  * Create a Proxy model where ANY method access returns a bun mock fn.
  * e.g. prisma.menuItem.create -> mock fn auto-created.
  */
-function makeModelProxy(modelName: string) {
+function makeModelProxy(_modelName: string) {
   const store: Record<string | symbol, any> = {};
 
   return new Proxy(store, {
@@ -35,13 +33,25 @@ function makeModelProxy(modelName: string) {
   });
 }
 
+function makeTxProxy() {
+  const store: Record<string | symbol, any> = {};
+  return new Proxy(store, {
+    get(target, prop) {
+      if (typeof prop === "symbol") return (target as any)[prop];
+      if (!(prop in target)) {
+        (target as any)[prop] = makeModelProxy(`tx.${String(prop)}`);
+      }
+      return (target as any)[prop];
+    },
+  });
+}
+
 /**
  * Prisma root proxy: prisma.user, prisma.merchant, prisma.payment, ...
  * AND special-case $transaction.
  */
 function makePrismaProxy() {
   const store: Record<string | symbol, any> = {};
-
   const tx = makeTxProxy();
 
   const prisma = new Proxy(store, {
@@ -79,19 +89,6 @@ function makePrismaProxy() {
   return prisma;
 }
 
-function makeTxProxy() {
-  const store: Record<string | symbol, any> = {};
-  return new Proxy(store, {
-    get(target, prop) {
-      if (typeof prop === "symbol") return (target as any)[prop];
-      if (!(prop in target)) {
-        (target as any)[prop] = makeModelProxy(`tx.${String(prop)}`);
-      }
-      return (target as any)[prop];
-    },
-  });
-}
-
 /**
  * Minimal Prisma error class used in many handlers (P2002/P2003/P2025 etc)
  */
@@ -126,21 +123,26 @@ export class PrismaClientKnownRequestError extends Error {
  */
 class Decimal {
   private v: number;
+
   constructor(n: any) {
     const x = typeof n === "number" ? n : Number(n);
     this.v = Number.isFinite(x) ? x : 0;
   }
+
   plus(o: any) {
     const x = o instanceof Decimal ? (o as any).v : Number(o);
     return new Decimal(this.v + (Number.isFinite(x) ? x : 0));
   }
+
   mul(o: any) {
     const x = o instanceof Decimal ? (o as any).v : Number(o);
     return new Decimal(this.v * (Number.isFinite(x) ? x : 0));
   }
+
   valueOf() {
     return this.v;
   }
+
   toString() {
     return String(this.v);
   }
@@ -170,14 +172,54 @@ mock.module("@prisma/client", () => {
   }
 
   // enums: include whatever your code imports; harmless to have extras
-  const Role = { ADMIN: "ADMIN", MERCHANT: "MERCHANT", CUSTOMER: "CUSTOMER", STAFF: "STAFF" } as const;
-  const UserStatus = { ACTIVE: "ACTIVE", SUSPENDED: "SUSPENDED", DELETED: "DELETED" } as const;
-  const MerchantStatus = { PENDING: "PENDING", APPROVED: "APPROVED", SUSPENDED: "SUSPENDED" } as const;
-  const OpenStatus = { CLOSED: "CLOSED", PAUSE: "PAUSE", BUSY: "BUSY", OPEN: "OPEN" } as const;
-  const MenuItemStatus = { DRAFT: "DRAFT", LIVE: "LIVE", SOLD_OUT: "SOLD_OUT", EXPIRED: "EXPIRED" } as const;
-  const PaymentStatus = { UNPAID: "UNPAID", PAID: "PAID", REFUNDED: "REFUNDED" } as const;
-  const OrderPreference = { CONTACT: "CONTACT", NO_CONTACT: "NO_CONTACT" } as const;
-  const EmployeeStatus = { ACTIVE: "ACTIVE", DISABLED: "DISABLED" } as const;
+  const Role = {
+    ADMIN: "ADMIN",
+    MERCHANT: "MERCHANT",
+    CUSTOMER: "CUSTOMER",
+    STAFF: "STAFF",
+  } as const;
+
+  const UserStatus = {
+    ACTIVE: "ACTIVE",
+    SUSPENDED: "SUSPENDED",
+    DELETED: "DELETED",
+  } as const;
+
+  const MerchantStatus = {
+    PENDING: "PENDING",
+    APPROVED: "APPROVED",
+    SUSPENDED: "SUSPENDED",
+  } as const;
+
+  const OpenStatus = {
+    CLOSED: "CLOSED",
+    PAUSE: "PAUSE",
+    BUSY: "BUSY",
+    OPEN: "OPEN",
+  } as const;
+
+  const MenuItemStatus = {
+    DRAFT: "DRAFT",
+    LIVE: "LIVE",
+    SOLD_OUT: "SOLD_OUT",
+    EXPIRED: "EXPIRED",
+  } as const;
+
+  const PaymentStatus = {
+    UNPAID: "UNPAID",
+    PAID: "PAID",
+    REFUNDED: "REFUNDED",
+  } as const;
+
+  const OrderPreference = {
+    CONTACT: "CONTACT",
+    NO_CONTACT: "NO_CONTACT",
+  } as const;
+
+  const EmployeeStatus = {
+    ACTIVE: "ACTIVE",
+    DISABLED: "DISABLED",
+  } as const;
 
   return {
     __esModule: true,
@@ -193,3 +235,27 @@ mock.module("@prisma/client", () => {
     EmployeeStatus,
   };
 });
+
+/**
+ * ✅ Option A: Silence only expected route error logs during tests
+ * - default: hide noisy logs like "[Merchant Setup Error]" and "[EditStore Update Error]"
+ * - to show logs: run SHOW_TEST_LOGS=1 bun test
+ */
+const _err = console.error.bind(console);
+const _warn = console.warn.bind(console);
+
+const SILENCE_PREFIXES = ["[Merchant Setup Error]", "[EditStore Update Error]"];
+
+console.error = (...args: any[]) => {
+  if (process.env.SHOW_TEST_LOGS === "1") return _err(...args);
+
+  const head = typeof args[0] === "string" ? args[0] : "";
+  if (SILENCE_PREFIXES.some((p) => head.startsWith(p))) return;
+
+  _err(...args);
+};
+
+console.warn = (...args: any[]) => {
+  if (process.env.SHOW_TEST_LOGS === "1") return _warn(...args);
+  _warn(...args);
+};
